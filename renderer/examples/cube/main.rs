@@ -1,5 +1,13 @@
-use renderer;
-
+use futures::executor;
+use renderer::renderer;
 fn main() {
-    renderer::run_window();
+    let rndr = renderer::WindowRenderer::new();
+    
+    // let _ = executor::block_on(rndr.());
+
+    rndr.run();
+}
+
+struct Cube {
+    // transform: renderer::spawner::Transform,
 }

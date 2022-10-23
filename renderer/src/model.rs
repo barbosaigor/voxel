@@ -1,6 +1,5 @@
 use std::ops::Range;
-
-use crate::texture;
+use super::{texture, instance};
 
 pub trait Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a>;
@@ -58,6 +57,7 @@ pub struct Mesh {
 pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
+    pub instances: Vec<instance::Instance>,
 }
 
 pub trait DrawModel<'a> {

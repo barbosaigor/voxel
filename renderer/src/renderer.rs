@@ -30,6 +30,7 @@ impl WindowRenderer {
 
     async fn event_loop(&self, ev_loop: EventLoop<()>, window: window::Window) {
         let mut rendr = render::Render::new(&window).await;
+        rendr.push_model("/res/cube.obj").await;
 
         ev_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
