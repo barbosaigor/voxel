@@ -1,13 +1,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
-use super::instance;
 use super::render;
-use cgmath::prelude::*;
-use futures::executor;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::{self, WindowBuilder},
+    window::WindowBuilder,
 };
 
 pub struct WindowRenderer {

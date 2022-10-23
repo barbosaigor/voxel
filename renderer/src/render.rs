@@ -3,7 +3,6 @@ use super::instance;
 use super::model::{self, DrawModel, Vertex};
 use super::resources;
 use super::texture;
-use cgmath::prelude::*;
 use futures::executor;
 use std::iter;
 use std::ops::Add;
