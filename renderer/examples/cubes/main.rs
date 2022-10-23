@@ -1,5 +1,5 @@
 use cgmath::prelude::*;
-use renderer::{self, instance};
+use renderer::{self, camera, instance};
 
 fn main() {
     let mut rndr = renderer::renderer::WindowRenderer::new();
@@ -32,6 +32,23 @@ fn main() {
         .unwrap()
         .borrow_mut()
         .push_instances_model("/res/cube.obj", instances);
+    
+    // update camera
+    {
+        let mut r = rndr.rendr.as_ref().unwrap().borrow_mut();
+
+        let camera = camera::Camera {
+            eye: (0.0, 5.0, -10.0).into(),
+            target: (0.0, 0.0, 0.0).into(),
+            up: cgmath::Vector3::unit_y(),
+            aspect: r.config.width as f32 / r.config.height as f32,
+            fovy: 80.0,
+            znear: 0.1,
+            zfar: 100.0,
+        };
+        
+        r.update_camera(camera);
+    }
 
     rndr.run();
 }

@@ -6,6 +6,8 @@ use super::texture;
 use futures::executor;
 use std::iter;
 use std::ops::Add;
+use wgpu::BindGroup;
+use wgpu::BindGroupLayout;
 use wgpu::PipelineLayout;
 use wgpu::RenderPipeline;
 use wgpu::{self, util::DeviceExt};
@@ -23,6 +25,7 @@ pub struct Render {
     pub camera_controller: camera::CameraController,
     pub camera_uniform: camera::CameraUniform,
     pub camera_buffer: wgpu::Buffer,
+    pub camera_bind_group_layout: wgpu::BindGroupLayout,
     pub camera_bind_group: wgpu::BindGroup,
     pub depth_texture: texture::Texture,
     pub models: Vec<model::Model>,
@@ -77,10 +80,97 @@ impl Render {
             znear: 0.1,
             zfar: 100.0,
         };
+        let (
+            camera_controller, 
+            camera_uniform, 
+            camera_buffer, 
+            camera_bind_group, 
+            camera_bind_group_layout,
+        ) = Self::create_camera(&device, &camera);
+
+        log::debug!("Depth buffer");
+        let depth_texture = texture::Texture::create_depth_texture(&device, &config, "depth_texture");
+        
+        let (render_pipeline, render_instance_pipeline) = Self::create_pipelines(&device, &config, &camera_bind_group_layout);
+        
+        Self {
+            surface,
+            device,
+            queue,
+            config,
+            size,
+            render_pipeline,
+            render_instance_pipeline,
+            camera,
+            camera_controller,
+            camera_buffer,
+            camera_bind_group,
+            camera_bind_group_layout,
+            camera_uniform,
+            depth_texture,
+            models: vec![],
+        }
+    }
+
+    fn create_pipelines(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group_layout: &wgpu::BindGroupLayout) -> (wgpu::RenderPipeline, wgpu::RenderPipeline) {
+        let texture_bind_group_layout = Self::new_texture_bind_group(&device);
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+        let render_pipeline = Self::build_pipeline(&device, &config, &render_pipeline_layout);
+        let render_instance_pipeline =
+            Self::build_instance_pipeline(&device, &config, &render_pipeline_layout);
+
+        (render_pipeline, render_instance_pipeline)
+    }
+
+    fn new_texture_bind_group(device: &wgpu::Device) -> BindGroupLayout {
+        device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            })
+    }
+
+    pub fn update_camera(&mut self, c: camera::Camera) {
+        
+        let (camera_controller, camera_uniform, camera_buffer, camera_bind_group, camera_bind_group_layout) = Self::create_camera(&self.device, &c);
+
+        self.camera = c;
+        self.camera_controller = camera_controller;
+        self.camera_uniform = camera_uniform;
+        self.camera_buffer = camera_buffer;
+        self.camera_bind_group = camera_bind_group;
+        self.camera_bind_group_layout = camera_bind_group_layout;
+    }
+
+    fn create_camera(device: &wgpu::Device, c: &camera::Camera) -> (camera::CameraController, camera::CameraUniform, wgpu::Buffer, BindGroup, BindGroupLayout) {
         let camera_controller = camera::CameraController::new(0.2);
 
         let mut camera_uniform = camera::CameraUniform::new();
-        camera_uniform.update_view_proj(&camera);
+        camera_uniform.update_view_proj(&c);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
@@ -112,60 +202,7 @@ impl Render {
             label: Some("camera_bind_group"),
         });
 
-        log::debug!("Depth buffer");
-        let depth_texture =
-            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
-
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        let render_pipeline = Self::build_pipeline(&device, &config, &render_pipeline_layout);
-        let render_instance_pipeline =
-            Self::build_instance_pipeline(&device, &config, &render_pipeline_layout);
-
-        Self {
-            surface,
-            device,
-            queue,
-            config,
-            size,
-            render_pipeline,
-            render_instance_pipeline,
-            camera,
-            camera_controller,
-            camera_buffer,
-            camera_bind_group,
-            camera_uniform,
-            depth_texture,
-            models: vec![],
-        }
+        (camera_controller, camera_uniform, camera_buffer, camera_bind_group, camera_bind_group_layout)
     }
 
     fn build_pipeline(
