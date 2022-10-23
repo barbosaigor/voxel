@@ -4,10 +4,11 @@ use super::model::{self, DrawModel, Vertex};
 use super::resources;
 use super::texture;
 use cgmath::prelude::*;
-use wgpu::PipelineLayout;
-use wgpu::RenderPipeline;
+use futures::executor;
 use std::iter;
 use std::ops::Add;
+use wgpu::PipelineLayout;
+use wgpu::RenderPipeline;
 use wgpu::{self, util::DeviceExt};
 use winit::{self, event, window::Window};
 
@@ -29,7 +30,7 @@ pub struct Render {
 }
 
 impl Render {
-    pub async fn new(window: &Window) -> Self {
+    pub fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
         // The instance is a handle to our GPU
@@ -37,28 +38,24 @@ impl Render {
         log::debug!("WGPU setup");
         let instance = wgpu::Instance::new(wgpu::Backends::all());
         let surface = unsafe { instance.create_surface(window) };
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await
-            .unwrap();
+        let adapter = executor::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::default(),
+            compatible_surface: Some(&surface),
+            force_fallback_adapter: false,
+        }))
+        .unwrap();
 
         log::debug!("device and queue");
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    label: None,
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
-                },
-                // Some(&std::path::Path::new("trace")), // Trace path
-                None, // Trace path
-            )
-            .await
-            .unwrap();
+        let (device, queue) = executor::block_on(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                label: None,
+                features: wgpu::Features::empty(),
+                limits: wgpu::Limits::default(),
+            },
+            // Some(&std::path::Path::new("trace")), // Trace path
+            None, // Trace path
+        ))
+        .unwrap();
 
         log::debug!("Surface");
         let config = wgpu::SurfaceConfiguration {
@@ -142,7 +139,7 @@ impl Render {
                 ],
                 label: Some("texture_bind_group_layout"),
             });
-        
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -150,8 +147,9 @@ impl Render {
                 push_constant_ranges: &[],
             });
 
-        let render_pipeline = Self::build_pipeline(&device, &config, &render_pipeline_layout).await;
-        let render_instance_pipeline = Self::build_instance_pipeline(&device, &config, &render_pipeline_layout).await;
+        let render_pipeline = Self::build_pipeline(&device, &config, &render_pipeline_layout);
+        let render_instance_pipeline =
+            Self::build_instance_pipeline(&device, &config, &render_pipeline_layout);
 
         Self {
             surface,
@@ -171,9 +169,13 @@ impl Render {
         }
     }
 
-    async fn build_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, render_pipeline_layout: &PipelineLayout) -> RenderPipeline {
+    fn build_pipeline(
+        device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
+        render_pipeline_layout: &PipelineLayout,
+    ) -> RenderPipeline {
         log::debug!("Shader");
-        let shader_str = resources::load_string("shader.wgsl").await.unwrap();
+        let shader_str = resources::load_string("shader.wgsl").unwrap();
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("shader.wgsl"),
             source: wgpu::ShaderSource::Wgsl(shader_str.into()),
@@ -230,11 +232,15 @@ impl Render {
         })
     }
 
-    async fn build_instance_pipeline(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, render_pipeline_layout: &PipelineLayout) -> RenderPipeline {
+    fn build_instance_pipeline(
+        device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
+        render_pipeline_layout: &PipelineLayout,
+    ) -> RenderPipeline {
         log::debug!("Shader");
-        let shader_str = resources::load_string("instance_shader.wgsl").await.unwrap();
+        let shader_str = resources::load_string("instance_shader.wgsl").unwrap();
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("shader.wgsl"),
+            label: Some("instance_shader.wgsl"),
             source: wgpu::ShaderSource::Wgsl(shader_str.into()),
         });
 
@@ -335,9 +341,9 @@ impl Render {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: (255.0 / 255.0 as f64).powf(2.2),
+                            g: (248.0 / 255.0 as f64).powf(2.2),
+                            b: (234.0 / 255.0 as f64).powf(2.2),
                             a: 1.0,
                         }),
                         store: true,
@@ -353,16 +359,29 @@ impl Render {
                 }),
             });
 
-            for m in &self.models {
+            for m in &mut self.models {
                 if m.instances.is_empty() {
                     render_pass.set_pipeline(&self.render_pipeline);
                     render_pass.draw_model(m, &self.camera_bind_group);
                     continue;
                 }
-
                 render_pass.set_pipeline(&self.render_instance_pipeline);
+
+                let instance_data = m
+                    .instances
+                    .iter()
+                    .map(instance::Instance::to_raw)
+                    .collect::<Vec<_>>();
+                m.instance_buffer =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("Instance Buffer"),
+                            contents: bytemuck::cast_slice(&instance_data),
+                            usage: wgpu::BufferUsages::VERTEX,
+                        });
+                render_pass.set_vertex_buffer(1, m.instance_buffer.slice(..));
                 render_pass.draw_model_instanced(
-                    &m,
+                    &*m,
                     0..m.instances.len() as u32,
                     &self.camera_bind_group,
                 );
@@ -375,7 +394,7 @@ impl Render {
         Ok(())
     }
 
-    pub async fn build_model(&self, obj_path: &str) -> model::Model {
+    pub fn build_model(&self, obj_path: &str) -> model::Model {
         log::debug!("Load model");
         let texture_bind_group_layout =
             self.device
@@ -409,22 +428,17 @@ impl Render {
             &self.queue,
             &texture_bind_group_layout,
         )
-        .await
         .unwrap()
     }
 
-    pub async fn push_model(&mut self, obj_path: &str) {
-        let m = self.build_model(obj_path).await;
+    pub fn push_model(&mut self, obj_path: &str) {
+        let m = self.build_model(obj_path);
 
         self.models.push(m);
     }
 
-    pub async fn push_model_instances(
-        &mut self,
-        obj_path: &str,
-        instances: Vec<instance::Instance>,
-    ) {
-        let mut m = self.build_model(obj_path).await;
+    pub fn push_instances_model(&mut self, obj_path: &str, instances: Vec<instance::Instance>) {
+        let mut m = self.build_model(obj_path);
 
         m.instances = instances;
 

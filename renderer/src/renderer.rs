@@ -1,47 +1,57 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+use super::instance;
+use super::render;
+use cgmath::prelude::*;
 use futures::executor;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::{WindowBuilder, self},
+    window::{self, WindowBuilder},
 };
-use super::render;
 
-pub struct WindowRenderer {}
+pub struct WindowRenderer {
+    ev_loop: Option<winit::event_loop::EventLoop<()>>,
+    window: Option<winit::window::Window>,
+    pub rendr: Option<Rc<RefCell<render::Render>>>,
+}
 
 impl WindowRenderer {
     pub fn new() -> Self {
-        WindowRenderer{
+        // TODO: replace it
+        env_logger::init();
+        let (ev_loop, window) = Self::create_win();
+        let rendr = Rc::new(RefCell::new(render::Render::new(&window)));
+        WindowRenderer {
+            ev_loop: Some(ev_loop),
+            window: Some(window),
+            rendr: Some(rendr),
         }
     }
 
-    pub fn run(&self) {
-        let _ = executor::block_on(self.run_async());
-    }
-
-    pub async fn run_async(&self) {
-        // TODO: replace it
-        env_logger::init();
-
+    pub fn create_win() -> (winit::event_loop::EventLoop<()>, winit::window::Window) {
         let ev_loop = EventLoop::new();
         let window = WindowBuilder::new().build(&ev_loop).unwrap();
-    
-        self.event_loop(ev_loop, window).await;
+
+        (ev_loop, window)
     }
 
-    async fn event_loop(&self, ev_loop: EventLoop<()>, window: window::Window) {
-        let mut rendr = render::Render::new(&window).await;
-        rendr.push_model("/res/cube.obj").await;
+    pub fn run(&mut self) {
+        let ev_loop = self.ev_loop.take().unwrap(); 
+        let window = self.window.take().unwrap();
+        
+        let rendr = self.rendr.as_ref().unwrap().clone();
 
         ev_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
-            
+
             match event {
                 Event::MainEventsCleared => window.request_redraw(),
                 Event::WindowEvent {
                     ref event,
                     window_id,
                 } if window_id == window.id() => {
-                    if !rendr.input(event) {
+                    if !rendr.borrow_mut().input(event) {
                         match event {
                             WindowEvent::CloseRequested
                             | WindowEvent::KeyboardInput {
@@ -54,21 +64,23 @@ impl WindowRenderer {
                                 ..
                             } => *control_flow = ControlFlow::Exit,
                             WindowEvent::Resized(physical_size) => {
-                                rendr.resize(*physical_size);
+                                rendr.borrow_mut().resize(*physical_size);
                             }
                             WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                                rendr.resize(**new_inner_size);
+                                rendr.borrow_mut().resize(**new_inner_size);
                             }
                             _ => {}
                         }
                     }
                 }
                 Event::RedrawRequested(window_id) if window_id == window.id() => {
-                    rendr.update();
-                    match rendr.render() {
+                    rendr.borrow_mut().update();
+                    match rendr.borrow_mut().render() {
                         Ok(_) => {}
                         // Reconfigure the surface if it's lost or outdated
-                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => rendr.resize(rendr.size),
+                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+                            rendr.borrow_mut().resize(rendr.borrow().size)
+                        }
                         // The system is out of memory, we should probably quit
                         Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                         // We're ignoring timeouts

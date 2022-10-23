@@ -3,11 +3,11 @@ mod render;
 mod model;
 mod texture;
 mod camera;
-mod instance;
+pub mod instance;
 mod resources;
 pub mod spawner;
 
 pub fn run_window() {
-    let rndr = renderer::WindowRenderer::new();
+    let mut rndr = renderer::WindowRenderer::new();
     rndr.run();
 }

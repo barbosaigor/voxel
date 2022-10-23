@@ -1,13 +1,13 @@
-use futures::executor;
 use renderer::renderer;
+
 fn main() {
-    let rndr = renderer::WindowRenderer::new();
-    
-    // let _ = executor::block_on(rndr.());
+    let mut rndr = renderer::WindowRenderer::new();
+
+    rndr.rendr
+        .as_ref()
+        .unwrap()
+        .borrow_mut()
+        .push_model("/res/cube.obj");
 
     rndr.run();
-}
-
-struct Cube {
-    // transform: renderer::spawner::Transform,
 }

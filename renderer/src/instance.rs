@@ -58,5 +58,3 @@ impl InstanceRaw {
         }
     }
 }
-
-pub const NUM_INSTANCES_PER_ROW: u32 = 10;

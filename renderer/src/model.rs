@@ -58,6 +58,7 @@ pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
     pub instances: Vec<instance::Instance>,
+    pub instance_buffer: wgpu::Buffer,
 }
 
 pub trait DrawModel<'a> {

@@ -2,7 +2,7 @@ use super::{model, texture};
 use std::io::{BufReader, Cursor};
 use wgpu::util::DeviceExt;
 
-pub async fn load_string(file_name: &str) -> anyhow::Result<String> {
+pub fn load_string(file_name: &str) -> anyhow::Result<String> {
     let p = env!("OUT_DIR");
     println!("OUT_DIR={}", p);
     // let p = "/home/igor/Documents/git/github.com/barbosaigor/voxel";
@@ -14,7 +14,7 @@ pub async fn load_string(file_name: &str) -> anyhow::Result<String> {
     Ok(txt)
 }
 
-pub async fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
+pub fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
     let p = env!("OUT_DIR");
     let path = std::path::Path::new(p)
         .join("res")
@@ -24,42 +24,41 @@ pub async fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
     Ok(data)
 }
 
-pub async fn load_texture(
+pub fn load_texture(
     file_name: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
 ) -> anyhow::Result<texture::Texture> {
-    let data = load_binary(file_name).await?;
+    let data = load_binary(file_name)?;
     texture::Texture::from_bytes(device, queue, &data, file_name)
 }
 
-pub async fn load_model(
+pub fn load_model(
     file_name: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
-    let obj_text = load_string(file_name).await?;
+    let obj_text = load_string(file_name)?;
     let obj_cursor = Cursor::new(obj_text);
     let mut obj_reader = BufReader::new(obj_cursor);
 
-    let (models, obj_materials) = tobj::load_obj_buf_async(
+    let (models, obj_materials) = tobj::load_obj_buf(
         &mut obj_reader,
         &tobj::LoadOptions {
             triangulate: true,
             single_index: true,
             ..Default::default()
         },
-        |p| async move {
-            let mat_text = load_string(&p).await.unwrap();
+        |p| {
+            let mat_text = load_string(p.to_str().unwrap()).unwrap();
             tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
         },
-    )
-    .await?;
+    )?;
 
     let mut materials = Vec::new();
     for m in obj_materials? {
-        let diffuse_texture = load_texture(&m.diffuse_texture, device, queue).await?;
+        let diffuse_texture = load_texture(&m.diffuse_texture, device, queue)?;
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
             entries: &[
@@ -122,5 +121,11 @@ pub async fn load_model(
         })
         .collect::<Vec<_>>();
 
-    Ok(model::Model { meshes, materials, instances: vec![] })
+    let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Instance Buffer"),
+        contents: &[],
+        usage: wgpu::BufferUsages::VERTEX,
+    });
+
+    Ok(model::Model { meshes, materials, instances: vec![], instance_buffer })
 }
