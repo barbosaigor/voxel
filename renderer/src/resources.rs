@@ -6,9 +6,7 @@ pub fn load_string(file_name: &str) -> anyhow::Result<String> {
     let p = env!("OUT_DIR");
     println!("OUT_DIR={}", p);
     // let p = "/home/igor/Documents/git/github.com/barbosaigor/voxel";
-    let path = std::path::Path::new(p)
-        .join("res")
-        .join(file_name);
+    let path = std::path::Path::new(p).join("res").join(file_name);
     let txt = std::fs::read_to_string(path)?;
 
     Ok(txt)
@@ -16,9 +14,7 @@ pub fn load_string(file_name: &str) -> anyhow::Result<String> {
 
 pub fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
     let p = env!("OUT_DIR");
-    let path = std::path::Path::new(p)
-        .join("res")
-        .join(file_name);
+    let path = std::path::Path::new(p).join("res").join(file_name);
     let data = std::fs::read(path)?;
 
     Ok(data)
@@ -38,6 +34,7 @@ pub fn load_model(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     layout: &wgpu::BindGroupLayout,
+    color: Option<[f32; 4]>,
 ) -> anyhow::Result<model::Model> {
     let obj_text = load_string(file_name)?;
     let obj_cursor = Cursor::new(obj_text);
@@ -97,6 +94,7 @@ pub fn load_model(
                         m.mesh.normals[i * 3 + 1],
                         m.mesh.normals[i * 3 + 2],
                     ],
+                    color: color.unwrap_or_default(),
                 })
                 .collect::<Vec<_>>();
 
@@ -127,5 +125,11 @@ pub fn load_model(
         usage: wgpu::BufferUsages::VERTEX,
     });
 
-    Ok(model::Model { meshes, materials, instances: vec![], instance_buffer })
+    Ok(model::Model {
+        meshes,
+        materials,
+        instances: vec![],
+        instance_buffer,
+        color,
+    })
 }

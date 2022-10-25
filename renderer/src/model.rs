@@ -11,6 +11,7 @@ pub struct ModelVertex {
     pub position: [f32; 3],
     pub tex_coords: [f32; 2],
     pub normal: [f32; 3],
+    pub color: [f32; 4],
 }
 
 impl Vertex for ModelVertex {
@@ -20,7 +21,7 @@ impl Vertex for ModelVertex {
             array_stride: mem::size_of::<ModelVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
-                wgpu::VertexAttribute {
+                wgpu::VertexAttribute { // position
                     offset: 0,
                     shader_location: 0,
                     format: wgpu::VertexFormat::Float32x3,
@@ -34,6 +35,21 @@ impl Vertex for ModelVertex {
                     offset: mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
                     shader_location: 2,
                     format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute { // color
+                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                    shader_location: 3,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute { // transform matrix 1
+                    offset: mem::size_of::<[f32; 11]>() as wgpu::BufferAddress,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute { // transform matrix 2
+                    offset: mem::size_of::<[f32; 15]>() as wgpu::BufferAddress,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32x4,
                 },
             ],
         }
@@ -59,6 +75,7 @@ pub struct Model {
     pub materials: Vec<Material>,
     pub instances: Vec<instance::Instance>,
     pub instance_buffer: wgpu::Buffer,
+    pub color: Option<[f32; 4]>,
 }
 
 pub trait DrawModel<'a> {

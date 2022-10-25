@@ -6,11 +6,7 @@ use super::texture;
 use futures::executor;
 use std::iter;
 use std::ops::Add;
-use wgpu::BindGroup;
-use wgpu::BindGroupLayout;
-use wgpu::PipelineLayout;
-use wgpu::RenderPipeline;
-use wgpu::{self, util::DeviceExt};
+use wgpu::{self, util::DeviceExt, BindGroup, BindGroupLayout, PipelineLayout, RenderPipeline};
 use winit::{self, event, window::Window};
 
 pub struct Render {
@@ -21,6 +17,7 @@ pub struct Render {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub render_pipeline: wgpu::RenderPipeline,
     pub render_instance_pipeline: wgpu::RenderPipeline,
+    pub render_uniform_color_pipeline: wgpu::RenderPipeline,
     pub camera: camera::Camera,
     pub camera_controller: camera::CameraController,
     pub camera_uniform: camera::CameraUniform,
@@ -81,18 +78,21 @@ impl Render {
             zfar: 100.0,
         };
         let (
-            camera_controller, 
-            camera_uniform, 
-            camera_buffer, 
-            camera_bind_group, 
+            camera_controller,
+            camera_uniform,
+            camera_buffer,
+            camera_bind_group,
             camera_bind_group_layout,
         ) = Self::create_camera(&device, &camera);
 
         log::debug!("Depth buffer");
-        let depth_texture = texture::Texture::create_depth_texture(&device, &config, "depth_texture");
-        
-        let (render_pipeline, render_instance_pipeline) = Self::create_pipelines(&device, &config, &camera_bind_group_layout);
-        
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
+
+        log::debug!("Pipelines");
+        let (render_pipeline, render_instance_pipeline, render_uniform_color_pipeline) =
+            Self::create_pipelines(&device, &config, &camera_bind_group_layout);
+
         Self {
             surface,
             device,
@@ -101,6 +101,7 @@ impl Render {
             size,
             render_pipeline,
             render_instance_pipeline,
+            render_uniform_color_pipeline,
             camera,
             camera_controller,
             camera_buffer,
@@ -112,7 +113,15 @@ impl Render {
         }
     }
 
-    fn create_pipelines(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration, camera_bind_group_layout: &wgpu::BindGroupLayout) -> (wgpu::RenderPipeline, wgpu::RenderPipeline) {
+    fn create_pipelines(
+        device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
+        camera_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> (
+        wgpu::RenderPipeline,
+        wgpu::RenderPipeline,
+        wgpu::RenderPipeline,
+    ) {
         let texture_bind_group_layout = Self::new_texture_bind_group(&device);
 
         let render_pipeline_layout =
@@ -125,38 +134,48 @@ impl Render {
         let render_pipeline = Self::build_pipeline(&device, &config, &render_pipeline_layout);
         let render_instance_pipeline =
             Self::build_instance_pipeline(&device, &config, &render_pipeline_layout);
+        let render_uniform_color_pipeline =
+            Self::build_uniform_color_pipeline(&device, &config, &render_pipeline_layout);
 
-        (render_pipeline, render_instance_pipeline)
+        (
+            render_pipeline,
+            render_instance_pipeline,
+            render_uniform_color_pipeline,
+        )
     }
 
     fn new_texture_bind_group(device: &wgpu::Device) -> BindGroupLayout {
-        device
-            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            })
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+            label: Some("texture_bind_group_layout"),
+        })
     }
 
     pub fn update_camera(&mut self, c: camera::Camera) {
-        
-        let (camera_controller, camera_uniform, camera_buffer, camera_bind_group, camera_bind_group_layout) = Self::create_camera(&self.device, &c);
+        let (
+            camera_controller,
+            camera_uniform,
+            camera_buffer,
+            camera_bind_group,
+            camera_bind_group_layout,
+        ) = Self::create_camera(&self.device, &c);
 
         self.camera = c;
         self.camera_controller = camera_controller;
@@ -166,7 +185,16 @@ impl Render {
         self.camera_bind_group_layout = camera_bind_group_layout;
     }
 
-    fn create_camera(device: &wgpu::Device, c: &camera::Camera) -> (camera::CameraController, camera::CameraUniform, wgpu::Buffer, BindGroup, BindGroupLayout) {
+    fn create_camera(
+        device: &wgpu::Device,
+        c: &camera::Camera,
+    ) -> (
+        camera::CameraController,
+        camera::CameraUniform,
+        wgpu::Buffer,
+        BindGroup,
+        BindGroupLayout,
+    ) {
         let camera_controller = camera::CameraController::new(0.2);
 
         let mut camera_uniform = camera::CameraUniform::new();
@@ -202,7 +230,13 @@ impl Render {
             label: Some("camera_bind_group"),
         });
 
-        (camera_controller, camera_uniform, camera_buffer, camera_bind_group, camera_bind_group_layout)
+        (
+            camera_controller,
+            camera_uniform,
+            camera_buffer,
+            camera_bind_group,
+            camera_bind_group_layout,
+        )
     }
 
     fn build_pipeline(
@@ -331,6 +365,69 @@ impl Render {
         })
     }
 
+    fn build_uniform_color_pipeline(
+        device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
+        render_pipeline_layout: &PipelineLayout,
+    ) -> RenderPipeline {
+        log::debug!("Shader");
+        let shader_str = resources::load_string("uniform_color_shader.wgsl").unwrap();
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("uniform_color_shader.wgsl"),
+            source: wgpu::ShaderSource::Wgsl(shader_str.into()),
+        });
+
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[model::ModelVertex::desc()],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::REPLACE,
+                        alpha: wgpu::BlendComponent::REPLACE,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // or Features::POLYGON_MODE_POINT
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            // If the pipeline will be used with a multiview render pass, this
+            // indicates how many array layers the attachments will have.
+            multiview: None,
+        })
+    }
+
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.camera.aspect = self.config.width as f32 / self.config.height as f32;
@@ -397,8 +494,14 @@ impl Render {
 
             for m in &mut self.models {
                 if m.instances.is_empty() {
-                    render_pass.set_pipeline(&self.render_pipeline);
+                    if let Some(_) = m.color {
+                        render_pass.set_pipeline(&self.render_uniform_color_pipeline);
+                    } else {
+                        render_pass.set_pipeline(&self.render_pipeline);
+                    }
+
                     render_pass.draw_model(m, &self.camera_bind_group);
+
                     continue;
                 }
                 render_pass.set_pipeline(&self.render_instance_pipeline);
@@ -431,44 +534,64 @@ impl Render {
     }
 
     pub fn build_model(&self, obj_path: &str) -> model::Model {
-        log::debug!("Load model");
-        let texture_bind_group_layout =
-            self.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            },
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                            count: None,
-                        },
-                    ],
-                    label: Some("texture_bind_group_layout"),
-                });
+        self.create_model(obj_path, None)
+    }
 
-        let model_path = env!("OUT_DIR").to_string().add(obj_path);
+    pub fn build_color_model(&self, obj_path: &str, color: [f32; 4]) -> model::Model {
+        self.create_model(obj_path, Some(color))
+    }
+
+    pub fn create_model(&self, obj_path: &str, color: Option<[f32; 4]>) -> model::Model {
+        log::debug!("Load model");
+        let texture_bind_group_layout = self.texture_bind_group_layout();
 
         resources::load_model(
-            &model_path,
+            &self.path_with_out_dir(obj_path),
             &self.device,
             &self.queue,
             &texture_bind_group_layout,
+            color,
         )
         .unwrap()
     }
 
+    fn path_with_out_dir(&self, obj_path: &str) -> String {
+        env!("OUT_DIR").to_string().add(obj_path)
+    }
+
+    fn texture_bind_group_layout(&self) -> BindGroupLayout {
+        self.device
+            .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            })
+    }
+
     pub fn push_model(&mut self, obj_path: &str) {
         let m = self.build_model(obj_path);
+
+        self.models.push(m);
+    }
+
+    pub fn push_uniform_color_model(&mut self, obj_path: &str, color: [f32; 4]) {
+        let m = self.build_color_model(obj_path, color);
 
         self.models.push(m);
     }

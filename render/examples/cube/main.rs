@@ -1,4 +1,4 @@
-use renderer::renderer;
+use render::renderer;
 
 fn main() {
     let mut rndr = renderer::WindowRenderer::new();
@@ -7,7 +7,7 @@ fn main() {
         .as_ref()
         .unwrap()
         .borrow_mut()
-        .push_uniform_color_model("/res/cube.obj", [0.7, 0.3, 0.3, 1.0]);
+        .push_model("/res/cube.obj", Some([0.7, 0.3, 0.3, 1.0]));
 
     rndr.run();
 }
