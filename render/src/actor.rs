@@ -1,9 +1,7 @@
-use crate::model;
-
-use super::transform;
+use super::{transform, model};
 
 #[allow(dead_code)]
-struct Actor {
+pub struct Actor {
     pub transform: transform::Transform,
     pub model: model::Model,
 }

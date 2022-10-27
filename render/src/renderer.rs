@@ -5,6 +5,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use crate::actor;
+
 use super::render;
 
 pub struct WindowRenderer {
@@ -33,7 +35,7 @@ impl WindowRenderer {
         (ev_loop, window)
     }
 
-    pub fn run(&mut self) {
+    pub fn run(&mut self, mut actors: Vec<actor::Actor>) {
         let ev_loop = self.ev_loop.take().unwrap(); 
         let window = self.window.take().unwrap();
         
@@ -72,7 +74,7 @@ impl WindowRenderer {
                 }
                 Event::RedrawRequested(window_id) if window_id == window.id() => {
                     rendr.borrow_mut().update();
-                    match rendr.borrow_mut().render() {
+                    match rendr.borrow_mut().render(&mut actors) {
                         Ok(_) => {}
                         // Reconfigure the surface if it's lost or outdated
                         Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {

@@ -1,12 +1,10 @@
-use crate::pipeline;
-
+use super::{pipeline, actor};
 use super::camera;
-use super::model::{self, DrawModel, Vertex};
-use super::{resources, texture};
+use super::model::{self, DrawModel};
+use super::texture;
 use futures::executor;
 use std::iter;
-use std::ops::Add;
-use wgpu::{self, util::DeviceExt, BindGroup, BindGroupLayout, PipelineLayout, RenderPipeline};
+use wgpu;
 use winit::{self, event, window::Window};
 
 pub struct Render {
@@ -110,7 +108,7 @@ impl Render {
         );
     }
 
-    pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn render(&mut self, actors: &mut Vec<actor::Actor>) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -148,10 +146,10 @@ impl Render {
                 }),
             });
 
-            for m in &mut self.models {
-                m.mesh.update_buffers(&self.device);
+            for actor in actors {
+                actor.model.mesh.update_buffers(&self.device);
                 render_pass.set_pipeline(&self.render_pipeline);
-                render_pass.draw_model(m, &self.camera_bundle.bind_group);
+                render_pass.draw_model(&actor.model, &self.camera_bundle.bind_group);
             }
         }
 
@@ -159,26 +157,6 @@ impl Render {
         output.present();
 
         Ok(())
-    }
-
-    pub fn push_model(&mut self, obj_path: &str, color: Option<[f32; 4]>) {
-        let m = self.load_model(obj_path, color);
-
-        self.models.push(m);
-    }
-
-    pub fn load_model(&self, obj_path: &str, color: Option<[f32; 4]>) -> model::Model {
-        log::debug!("loading model");
-
-        resources::load_model(
-            &self.path_with_out_dir(obj_path),
-            color,
-        )
-        .unwrap()
-    }
-
-    fn path_with_out_dir(&self, obj_path: &str) -> String {
-        env!("OUT_DIR").to_string().add(obj_path)
     }
 
     pub fn update_camera(&mut self, c: camera::Camera) {
