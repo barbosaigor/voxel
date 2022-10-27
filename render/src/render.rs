@@ -1,3 +1,5 @@
+use crate::pipeline;
+
 use super::camera;
 use super::model::{self, DrawModel, Vertex};
 use super::{resources, texture};
@@ -67,7 +69,7 @@ impl Render {
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         log::debug!("Pipelines");
-        let (render_pipeline,) = Self::create_pipelines(&device, &config, &camera_bundle.bind_group_layout);
+        let (render_pipeline,) = pipeline::create_pipelines(&device, &config, &camera_bundle.bind_group_layout);
 
         Self {
             surface,
@@ -80,90 +82,6 @@ impl Render {
             depth_texture,
             models: vec![],
         }
-    }
-
-    fn create_pipelines(
-        device: &wgpu::Device,
-        config: &wgpu::SurfaceConfiguration,
-        camera_bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> (wgpu::RenderPipeline,) {
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-        let render_uniform_color_pipeline = Self::build_uniform_color_pipeline(&device, &config, &render_pipeline_layout);
-
-        (render_uniform_color_pipeline,)
-    }
-
-    pub fn update_camera(&mut self, c: camera::Camera) {
-        self.camera_bundle = camera::CameraBundle::from_camera(&c, &self.device);
-    }
-
-    fn build_uniform_color_pipeline(
-        device: &wgpu::Device,
-        config: &wgpu::SurfaceConfiguration,
-        render_pipeline_layout: &PipelineLayout,
-    ) -> RenderPipeline {
-        log::debug!("Shader");
-        let shader_str = resources::load_string("uniform_color_shader.wgsl").unwrap();
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("uniform_color_shader.wgsl"),
-            source: wgpu::ShaderSource::Wgsl(shader_str.into()),
-        });
-
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[model::MeshVertex::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent::REPLACE,
-                        alpha: wgpu::BlendComponent::REPLACE,
-                    }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                // or Features::POLYGON_MODE_POINT
-                polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: texture::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            // If the pipeline will be used with a multiview render pass, this
-            // indicates how many array layers the attachments will have.
-            multiview: None,
-        })
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -261,5 +179,9 @@ impl Render {
 
     fn path_with_out_dir(&self, obj_path: &str) -> String {
         env!("OUT_DIR").to_string().add(obj_path)
+    }
+
+    pub fn update_camera(&mut self, c: camera::Camera) {
+        self.camera_bundle = camera::CameraBundle::from_camera(&c, &self.device);
     }
 }
