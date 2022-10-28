@@ -1,4 +1,4 @@
-use super::{pipeline, actor};
+use super::{pipeline};
 use super::camera;
 use super::model::{self, DrawModel};
 use super::texture;
@@ -6,6 +6,7 @@ use futures::executor;
 use std::iter;
 use wgpu;
 use winit::{self, event, window::Window};
+use actor;
 
 pub struct Render {
     pub surface: wgpu::Surface,
@@ -16,7 +17,6 @@ pub struct Render {
     pub render_pipeline: wgpu::RenderPipeline,
     pub camera_bundle: camera::CameraBundle,
     pub depth_texture: texture::Texture,
-    pub models: Vec<model::Model>,
 }
 
 impl Render {
@@ -78,7 +78,6 @@ impl Render {
             render_pipeline: render_pipeline,
             camera_bundle,
             depth_texture,
-            models: vec![],
         }
     }
 
@@ -108,7 +107,7 @@ impl Render {
         );
     }
 
-    pub fn render(&mut self, actors: &mut Vec<actor::Actor>) -> Result<(), wgpu::SurfaceError> {
+    pub fn draw(&mut self, buffActors: &mut Vec<model::BuffActor>) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -146,10 +145,10 @@ impl Render {
                 }),
             });
 
-            for actor in actors {
-                actor.model.mesh.update_buffers(&self.device);
+            for buffActor in buffActors {
+                buffActor.update_buffers(&self.device);
                 render_pass.set_pipeline(&self.render_pipeline);
-                render_pass.draw_model(&actor.model, &self.camera_bundle.bind_group);
+                // render_pass.draw_model(&buffActor, &self.camera_bundle.bind_group);
             }
         }
 

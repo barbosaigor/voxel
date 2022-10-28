@@ -1,5 +1,5 @@
-use super::{model, resources, actor, transform};
 use std::ops::Add;
+use super::{model, resources, transform, actor};
 
 pub fn push_actor(actors: &mut Vec<actor::Actor>, m: model::Model, transf: transform::Transform) {
     actors.push(actor::Actor { transform: transf, model: m });

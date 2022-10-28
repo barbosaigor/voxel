@@ -1,4 +1,5 @@
-use super::{model, model::Vertex, resources, texture};
+use super::{model::Vertex, texture};
+use actor::{resources, model as actormodel};
 
 pub fn create_pipelines(
     device: &wgpu::Device,
@@ -35,7 +36,7 @@ fn build_uniform_color_pipeline(
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: "vs_main",
-            buffers: &[model::MeshVertex::desc()],
+            buffers: &[actormodel::MeshVertex::desc()],
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,

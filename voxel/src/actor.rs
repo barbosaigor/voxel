@@ -1,4 +1,5 @@
-use super::{transform, model};
+use super::transform;
+use render::model;
 
 #[allow(dead_code)]
 pub struct Actor {
