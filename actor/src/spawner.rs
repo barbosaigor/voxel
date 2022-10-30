@@ -1,9 +1,5 @@
 use std::ops::Add;
-use super::{model, resources, transform, actor};
-
-pub fn push_actor(actors: &mut Vec<actor::Actor>, m: model::Model, transf: transform::Transform) {
-    actors.push(actor::Actor { transform: transf, model: m });
-}
+use super::{model, resources};
 
 pub fn push_model(models: &mut Vec<model::Model>, obj_path: &str, color: Option<[f32; 4]>) {
     let m = load_model(obj_path, color);
