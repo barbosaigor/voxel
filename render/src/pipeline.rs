@@ -1,3 +1,5 @@
+use crate::transform;
+
 use super::{model::Vertex, texture};
 use actor::{resources, model as actormodel};
 
@@ -36,7 +38,7 @@ fn build_uniform_color_pipeline(
         vertex: wgpu::VertexState {
             module: &shader,
             entry_point: "vs_main",
-            buffers: &[actormodel::MeshVertex::desc()],
+            buffers: &[actormodel::MeshVertex::desc(), transform::TransformMatrix::desc()],
         },
         fragment: Some(wgpu::FragmentState {
             module: &shader,

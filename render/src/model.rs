@@ -1,6 +1,8 @@
 use actor::{self, model};
 use wgpu::util::DeviceExt;
 
+use crate::transform;
+
 pub struct BuffActor<'a> {
     pub actor: &'a actor::Actor,
     pub buffers: Buffers,
@@ -15,6 +17,7 @@ impl<'a> BuffActor<'a> {
                 device,
                 &actor.model.mesh.vertices,
                 &actor.model.mesh.indices,
+                &actor.transform.into(),
             ),
         }
     }
@@ -25,6 +28,7 @@ impl<'a> BuffActor<'a> {
             device,
             &self.actor.model.mesh.vertices,
             &self.actor.model.mesh.indices,
+            &self.actor.transform.into(),
         );
     }
 }
@@ -44,6 +48,7 @@ where
 
     fn draw_mesh(&mut self, buff_actor: &'b BuffActor, camera_bind_group: &'b wgpu::BindGroup) {
         self.set_vertex_buffer(0, buff_actor.buffers.vertex_buffer.slice(..));
+        self.set_vertex_buffer(1, buff_actor.buffers.transform_buffer.slice(..));
         self.set_index_buffer(
             buff_actor.buffers.index_buffer.slice(..),
             wgpu::IndexFormat::Uint32,
@@ -56,6 +61,7 @@ where
 pub struct Buffers {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
+    pub transform_buffer: wgpu::Buffer,
 }
 
 impl Buffers {
@@ -64,6 +70,7 @@ impl Buffers {
         device: &wgpu::Device,
         vertices: &Vec<model::MeshVertex>,
         indices: &Vec<u32>,
+        transf: &transform::TransformMatrix,
     ) -> Self {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some(&format!("{:?} Vertex Buffer", id)),
@@ -77,9 +84,16 @@ impl Buffers {
             usage: wgpu::BufferUsages::INDEX,
         });
 
+        let transform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some(&format!("{:?} Transform Buffer", id)),
+            contents: bytemuck::bytes_of(transf),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
         Self {
             vertex_buffer,
             index_buffer,
+            transform_buffer,
         }
     }
 }
@@ -107,6 +121,30 @@ impl Vertex for model::MeshVertex {
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x4,
                 },
+                // wgpu::VertexAttribute {
+                //     // transform 1
+                //     offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
+                //     shader_location: 2,
+                //     format: wgpu::VertexFormat::Float32x4,
+                // },
+                // wgpu::VertexAttribute {
+                //     // transform 2
+                //     offset: mem::size_of::<[f32; 13]>() as wgpu::BufferAddress,
+                //     shader_location: 3,
+                //     format: wgpu::VertexFormat::Float32x4,
+                // },
+                // wgpu::VertexAttribute {
+                //     // transform 3
+                //     offset: mem::size_of::<[f32; 18]>() as wgpu::BufferAddress,
+                //     shader_location: 4,
+                //     format: wgpu::VertexFormat::Float32x4,
+                // },
+                // wgpu::VertexAttribute {
+                //     // transform 4
+                //     offset: mem::size_of::<[f32; 23]>() as wgpu::BufferAddress,
+                //     shader_location: 5,
+                //     format: wgpu::VertexFormat::Float32x4,
+                // },
             ],
         }
     }
