@@ -5,8 +5,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-use crate::model;
-
 use super::render;
 use actor;
 
@@ -36,7 +34,7 @@ impl WindowRenderer {
         (ev_loop, window)
     }
 
-    pub fn run(&mut self, mut buffActors: Vec<model::BuffActor>) {
+    pub fn run(&mut self, actors: Rc<RefCell<Vec<actor::Actor>>>, bus: Rc<RefCell<Vec<WinEvent>>>) {
         let ev_loop = self.ev_loop.take().unwrap(); 
         let window = self.window.take().unwrap();
         
@@ -51,6 +49,43 @@ impl WindowRenderer {
                     ref event,
                     window_id,
                 } if window_id == window.id() => {
+                    match  event {
+                        WindowEvent::KeyboardInput {
+                            input:
+                                KeyboardInput {
+                                    state,
+                                    virtual_keycode: Some(keycode),
+                                    ..
+                                },
+                            ..
+                        } => {
+                            let is_pressed = *state == ElementState::Pressed;
+                            if is_pressed {
+                                match keycode {
+                                    VirtualKeyCode::Space => {
+                                        bus.borrow_mut().push(WinEvent::Space);
+                                    }
+                                    VirtualKeyCode::LShift => {
+                                    }
+                                    VirtualKeyCode::W | VirtualKeyCode::Up => {
+                                        bus.borrow_mut().push(WinEvent::W);
+                                    }
+                                    VirtualKeyCode::A | VirtualKeyCode::Left => {
+                                        bus.borrow_mut().push(WinEvent::A);
+                                    }
+                                    VirtualKeyCode::S | VirtualKeyCode::Down => {
+                                        bus.borrow_mut().push(WinEvent::S);
+                                    }
+                                    VirtualKeyCode::D | VirtualKeyCode::Right => {
+                                        bus.borrow_mut().push(WinEvent::D);
+                                    }
+                                    _ => {},
+                                }
+                            }
+                        },
+                        _ => {},
+                    };
+
                     if !rendr.borrow_mut().input(event) {
                         match event {
                             WindowEvent::CloseRequested
@@ -72,10 +107,10 @@ impl WindowRenderer {
                             _ => {}
                         }
                     }
-                }
+                },
                 Event::RedrawRequested(window_id) if window_id == window.id() => {
                     rendr.borrow_mut().update();
-                    match rendr.borrow_mut().draw(&mut buffActors) {
+                    match rendr.borrow_mut().draw(&actors.borrow()) {
                         Ok(_) => {}
                         // Reconfigure the surface if it's lost or outdated
                         Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
@@ -86,9 +121,17 @@ impl WindowRenderer {
                         // We're ignoring timeouts
                         Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
                     }
-                }
-                _ => {}
+                },
+                _ => {},
             };
         });
     }
+}
+
+pub enum WinEvent {
+    Space,
+    W,
+    A,
+    S,
+    D
 }

@@ -1,7 +1,4 @@
-pub struct Transform {
-    pub position: cgmath::Vector3<f32>,
-    pub rotation: cgmath::Quaternion<f32>,
-}
+use actor::transform;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -41,8 +38,8 @@ impl TransformMatrix {
     }
 }
 
-impl From<Transform> for TransformMatrix {
-    fn from(t: Transform) -> Self {
+impl From<transform::Transform> for TransformMatrix {
+    fn from(t: transform::Transform) -> Self {
         Self { 
             model: (cgmath::Matrix4::from_translation(t.position) * cgmath::Matrix4::from(t.rotation)).into(),
         }

@@ -1,12 +1,12 @@
-use super::{pipeline};
 use super::camera;
 use super::model::{self, DrawModel};
+use super::pipeline;
 use super::texture;
+use actor;
 use futures::executor;
 use std::iter;
 use wgpu;
 use winit::{self, event, window::Window};
-use actor;
 
 pub struct Render {
     pub surface: wgpu::Surface,
@@ -67,7 +67,8 @@ impl Render {
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         log::debug!("Pipelines");
-        let (render_pipeline,) = pipeline::create_pipelines(&device, &config, &camera_bundle.bind_group_layout);
+        let (render_pipeline,) =
+            pipeline::create_pipelines(&device, &config, &camera_bundle.bind_group_layout);
 
         Self {
             surface,
@@ -98,8 +99,12 @@ impl Render {
     }
 
     pub fn update(&mut self) {
-        self.camera_bundle.controller.update_camera(&mut self.camera_bundle.camera);
-        self.camera_bundle.uniform.update_view_proj(&self.camera_bundle.camera);
+        self.camera_bundle
+            .controller
+            .update_camera(&mut self.camera_bundle.camera);
+        self.camera_bundle
+            .uniform
+            .update_view_proj(&self.camera_bundle.camera);
         self.queue.write_buffer(
             &self.camera_bundle.buffer,
             0,
@@ -107,7 +112,7 @@ impl Render {
         );
     }
 
-    pub fn draw(&mut self, buffActors: &mut Vec<model::BuffActor>) -> Result<(), wgpu::SurfaceError> {
+    pub fn draw(&mut self, actors: &Vec<actor::Actor>) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -119,6 +124,7 @@ impl Render {
                 label: Some("Render Encoder"),
             });
 
+        let buff_actors: Vec<model::BuffActor> = actors.iter().map(|actor| model::BuffActor::new(&self.device, actor)).collect();
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -145,10 +151,10 @@ impl Render {
                 }),
             });
 
-            for buffActor in buffActors {
-                buffActor.update_buffers(&self.device);
+            
+            for buff_actor in &buff_actors {
                 render_pass.set_pipeline(&self.render_pipeline);
-                // render_pass.draw_model(&buffActor, &self.camera_bundle.bind_group);
+                render_pass.draw_model(&buff_actor, &self.camera_bundle.bind_group);
             }
         }
 
