@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 cgmath = "0.18"
+specs = { version = "0.18.0", features = ["specs-derive"] }
 render = { path = "../render" }
 actor = { path = "../actor" }
