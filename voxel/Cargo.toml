@@ -7,6 +7,8 @@ edition = "2021"
 
 [dependencies]
 cgmath = "0.18"
+log = "0.4"
+wgpu = "0.13.1"
 specs = { version = "0.18.0", features = ["specs-derive"] }
 render = { path = "../render" }
 actor = { path = "../actor" }

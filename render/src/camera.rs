@@ -2,6 +2,8 @@ use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
 use winit::event::*;
 
+use crate::renderer;
+
 pub struct CameraBundle {
     pub camera: Camera,
     pub controller: CameraController,
@@ -111,7 +113,8 @@ impl CameraUniform {
     );
 
     pub fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = (Self::OPENGL_TO_WGPU_MATRIX * camera.build_view_projection_matrix()).into();
+        self.view_proj =
+            (Self::OPENGL_TO_WGPU_MATRIX * camera.build_view_projection_matrix()).into();
     }
 }
 
@@ -138,45 +141,27 @@ impl CameraController {
         }
     }
 
-    pub fn process_events(&mut self, event: &WindowEvent) -> bool {
+    pub fn process_events(&mut self, event: &renderer::WinEvent) -> bool {
         match event {
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state,
-                        virtual_keycode: Some(keycode),
-                        ..
-                    },
-                ..
-            } => {
-                let is_pressed = *state == ElementState::Pressed;
-                match keycode {
-                    VirtualKeyCode::Space => {
-                        self.is_up_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::LShift => {
-                        self.is_down_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::W | VirtualKeyCode::Up => {
-                        self.is_forward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::A | VirtualKeyCode::Left => {
-                        self.is_left_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::S | VirtualKeyCode::Down => {
-                        self.is_backward_pressed = is_pressed;
-                        true
-                    }
-                    VirtualKeyCode::D | VirtualKeyCode::Right => {
-                        self.is_right_pressed = is_pressed;
-                        true
-                    }
-                    _ => false,
-                }
+            renderer::WinEvent::Space => {
+                self.is_up_pressed = true;
+                true
+            }
+            renderer::WinEvent::W => {
+                self.is_forward_pressed = true;
+                true
+            }
+            renderer::WinEvent::A => {
+                self.is_left_pressed = true;
+                true
+            }
+            renderer::WinEvent::S => {
+                self.is_backward_pressed = true;
+                true
+            }
+            renderer::WinEvent::D => {
+                self.is_right_pressed = true;
+                true
             }
             _ => false,
         }

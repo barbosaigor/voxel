@@ -1,29 +1,36 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use actor;
+use std::{
+    default,
+    sync::{Arc, Mutex},
+};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-use super::render;
-use actor;
 
+#[derive(Default)]
 pub struct WindowRenderer {
     ev_loop: Option<winit::event_loop::EventLoop<()>>,
-    window: Option<winit::window::Window>,
-    pub rendr: Option<Rc<RefCell<render::Render>>>,
+    pub window: Option<winit::window::Window>,
+    pub events: Arc<Mutex<Vec<WinEvent>>>,
+    pub should_exit: Arc<Mutex<bool>>,
 }
+
+unsafe impl Sync for WindowRenderer {}
+
+unsafe impl Send for WindowRenderer {}
 
 impl WindowRenderer {
     pub fn new() -> Self {
         // TODO: replace it
         env_logger::init();
         let (ev_loop, window) = Self::create_win();
-        let rendr = Rc::new(RefCell::new(render::Render::new(&window)));
         WindowRenderer {
             ev_loop: Some(ev_loop),
+            events: Arc::new(Mutex::new(Vec::new())),
             window: Some(window),
-            rendr: Some(rendr),
+            should_exit: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -34,11 +41,11 @@ impl WindowRenderer {
         (ev_loop, window)
     }
 
-    pub fn run(&mut self, actors: Rc<RefCell<Vec<actor::Actor>>>, bus: Rc<RefCell<Vec<WinEvent>>>) {
-        let ev_loop = self.ev_loop.take().unwrap(); 
+    pub fn run(&mut self, actors: Vec<actor::Actor>) {
+        let ev_loop = self.ev_loop.take().unwrap();
         let window = self.window.take().unwrap();
-        
-        let rendr = self.rendr.as_ref().unwrap().clone();
+
+        let events = self.events.clone();
 
         ev_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
@@ -49,7 +56,7 @@ impl WindowRenderer {
                     ref event,
                     window_id,
                 } if window_id == window.id() => {
-                    match  event {
+                    match event {
                         WindowEvent::KeyboardInput {
                             input:
                                 KeyboardInput {
@@ -63,75 +70,77 @@ impl WindowRenderer {
                             if is_pressed {
                                 match keycode {
                                     VirtualKeyCode::Space => {
-                                        bus.borrow_mut().push(WinEvent::Space);
-                                    }
-                                    VirtualKeyCode::LShift => {
+                                        events.lock().unwrap().push(WinEvent::Space);
                                     }
                                     VirtualKeyCode::W | VirtualKeyCode::Up => {
-                                        bus.borrow_mut().push(WinEvent::W);
+                                        events.lock().unwrap().push(WinEvent::W);
                                     }
                                     VirtualKeyCode::A | VirtualKeyCode::Left => {
-                                        bus.borrow_mut().push(WinEvent::A);
+                                        events.lock().unwrap().push(WinEvent::A);
                                     }
                                     VirtualKeyCode::S | VirtualKeyCode::Down => {
-                                        bus.borrow_mut().push(WinEvent::S);
+                                        events.lock().unwrap().push(WinEvent::S);
                                     }
                                     VirtualKeyCode::D | VirtualKeyCode::Right => {
-                                        bus.borrow_mut().push(WinEvent::D);
+                                        events.lock().unwrap().push(WinEvent::D);
                                     }
-                                    _ => {},
+                                    _ => {}
                                 }
                             }
-                        },
-                        _ => {},
+                        }
+                        _ => {}
                     };
 
-                    if !rendr.borrow_mut().input(event) {
-                        match event {
-                            WindowEvent::CloseRequested
-                            | WindowEvent::KeyboardInput {
-                                input:
-                                    KeyboardInput {
-                                        state: ElementState::Pressed,
-                                        virtual_keycode: Some(VirtualKeyCode::Escape),
-                                        ..
-                                    },
-                                ..
-                            } => *control_flow = ControlFlow::Exit,
-                            WindowEvent::Resized(physical_size) => {
-                                rendr.borrow_mut().resize(*physical_size);
-                            }
-                            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                                rendr.borrow_mut().resize(**new_inner_size);
-                            }
-                            _ => {}
+                    match event {
+                        WindowEvent::CloseRequested
+                        | WindowEvent::KeyboardInput {
+                            input:
+                                KeyboardInput {
+                                    state: ElementState::Pressed,
+                                    virtual_keycode: Some(VirtualKeyCode::Escape),
+                                    ..
+                                },
+                            ..
+                        } => *control_flow = ControlFlow::Exit,
+                        WindowEvent::Resized(physical_size) => {
+                            events
+                                .lock()
+                                .unwrap()
+                                .push(WinEvent::Resize(physical_size.width, physical_size.height));
                         }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            events.lock().unwrap().push(WinEvent::Resize(
+                                new_inner_size.width,
+                                new_inner_size.height,
+                            ));
+                        }
+                        _ => {}
                     }
-                },
+                }
                 Event::RedrawRequested(window_id) if window_id == window.id() => {
-                    rendr.borrow_mut().update();
-                    match rendr.borrow_mut().draw(&actors.borrow()) {
-                        Ok(_) => {}
-                        // Reconfigure the surface if it's lost or outdated
-                        Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            rendr.borrow_mut().resize(rendr.borrow().size)
-                        }
-                        // The system is out of memory, we should probably quit
-                        Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                        // We're ignoring timeouts
-                        Err(wgpu::SurfaceError::Timeout) => log::warn!("Surface timeout"),
-                    }
-                },
-                _ => {},
+                    events.lock().unwrap().push(WinEvent::Redraw);
+                }
+                _ => {}
             };
         });
     }
 }
 
+#[derive(Clone, Debug)]
 pub enum WinEvent {
     Space,
     W,
     A,
     S,
-    D
+    D,
+    Esc,
+    Close,
+    Redraw,
+    Resize(u32, u32),
+    Nothing,
+}
+
+#[derive(Default)]
+pub struct WinEvents {
+    pub events: Vec<WinEvent>,
 }

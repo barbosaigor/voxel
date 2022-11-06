@@ -1,3 +1,5 @@
+use crate::renderer;
+
 use super::camera;
 use super::model::{self, DrawModel};
 use super::pipeline;
@@ -8,12 +10,13 @@ use std::iter;
 use wgpu;
 use winit::{self, event, window::Window};
 
+
 pub struct Render {
     pub surface: wgpu::Surface,
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
-    pub size: winit::dpi::PhysicalSize<u32>,
+    pub size: (u32, u32),
     pub render_pipeline: wgpu::RenderPipeline,
     pub camera_bundle: camera::CameraBundle,
     pub depth_texture: texture::Texture,
@@ -75,26 +78,26 @@ impl Render {
             device,
             queue,
             config,
-            size,
+            size: (size.width, size.height),
             render_pipeline: render_pipeline,
             camera_bundle,
             depth_texture,
         }
     }
 
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        if new_size.width > 0 && new_size.height > 0 {
+    pub fn resize(&mut self, (width, height): (u32, u32)) {
+        if width > 0 && height > 0 {
             self.camera_bundle.camera.aspect = self.config.width as f32 / self.config.height as f32;
-            self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
+            self.config.width = width;
+            self.config.height = height;
+            self.size = (width, height);
             self.surface.configure(&self.device, &self.config);
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
         }
     }
 
-    pub fn input(&mut self, event: &event::WindowEvent) -> bool {
+    pub fn input(&mut self, event: &renderer::WinEvent) -> bool {
         self.camera_bundle.controller.process_events(event)
     }
 

@@ -1,10 +1,10 @@
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Model {
     pub mesh: Mesh,
     pub color: Option<[f32; 4]>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Mesh {
     pub id: String,
     pub indices: Vec<u32>,

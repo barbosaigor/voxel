@@ -74,7 +74,7 @@ fn main() {
 
     let mut dt = world.write_resource::<DeltaTime>();
     *dt = DeltaTime(0.05);
-    // drop(dt);
+    drop(dt);
 
     dispatcher.dispatch(&mut world);
     world.maintain();
