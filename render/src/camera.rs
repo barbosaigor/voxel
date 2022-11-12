@@ -1,6 +1,5 @@
 use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
-use winit::event::*;
 
 use crate::renderer;
 
@@ -147,19 +146,19 @@ impl CameraController {
                 self.is_up_pressed = true;
                 true
             }
-            renderer::WinEvent::W => {
+            renderer::WinEvent::Up => {
                 self.is_forward_pressed = true;
                 true
             }
-            renderer::WinEvent::A => {
+            renderer::WinEvent::Left => {
                 self.is_left_pressed = true;
                 true
             }
-            renderer::WinEvent::S => {
+            renderer::WinEvent::Down => {
                 self.is_backward_pressed = true;
                 true
             }
-            renderer::WinEvent::D => {
+            renderer::WinEvent::Right => {
                 self.is_right_pressed = true;
                 true
             }
@@ -167,7 +166,7 @@ impl CameraController {
         }
     }
 
-    pub fn update_camera(&self, camera: &mut Camera) {
+    pub fn update_camera(&mut self, camera: &mut Camera) {
         let forward = camera.target - camera.eye;
         let forward_norm = forward.normalize();
         let forward_mag = forward.magnitude();
@@ -196,5 +195,16 @@ impl CameraController {
         if self.is_left_pressed {
             camera.eye = camera.target - (forward - right * self.speed).normalize() * forward_mag;
         }
+
+        self.reset_pressed_button();
+    }
+
+    fn reset_pressed_button(&mut self) {
+        self.is_up_pressed = false;
+        self.is_down_pressed = false;
+        self.is_forward_pressed = false;
+        self.is_backward_pressed = false;
+        self.is_left_pressed = false;
+        self.is_right_pressed = false;
     }
 }
