@@ -1,7 +1,6 @@
-use actor::{self, model};
+use crate::actor::{self, model};
 use wgpu::util::DeviceExt;
-
-use crate::transform;
+use super::transform;
 
 pub struct BuffActor<'a> {
     pub actor: &'a actor::Actor,

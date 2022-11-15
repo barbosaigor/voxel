@@ -1,10 +1,12 @@
-use actor;
+use crate::{actor, state};
 use std::sync::{Arc, Mutex};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use crate::event::*;
+use crate::ticker::Ticker;
 
 #[derive(Default)]
 pub struct WindowRenderer {
@@ -142,41 +144,16 @@ impl WindowRenderer {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum WinEvent {
-    Space,
-    W,
-    A,
-    S,
-    D,
-    Up,
-    Down,
-    Left,
-    Right,
-    Esc,
-    Close,
-    Redraw,
-    Resize(u32, u32),
-    Nothing,
-}
-
-#[derive(Default)]
-pub struct WinEvents {
-    pub events: Vec<WinEvent>,
-}
-
-pub fn run<T>(
+pub fn run(
     ev_loop: winit::event_loop::EventLoop<()>,
     window: winit::window::Window,
-    events: Arc<Mutex<WinEvents>>,
-    mut dispatcher: T,
-) where
-    T: FnMut() + 'static,
+    mut global_state: state::State,
+)
 {
     ev_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
         log::trace!("running event loop");
-        dispatcher();
+        *control_flow = ControlFlow::Poll;
+        let mut win_events = Vec::<WinEvent>::new();
 
         match event {
             Event::MainEventsCleared => window.request_redraw(),
@@ -199,23 +176,23 @@ pub fn run<T>(
                             match keycode {
                                 VirtualKeyCode::Space => {
                                     log::debug!("pushing {:?} to event bus", WinEvent::Space);
-                                    events.lock().unwrap().events.push(WinEvent::Space);
+                                    win_events.push(WinEvent::Space);
                                 }
                                 VirtualKeyCode::W | VirtualKeyCode::Up => {
                                     log::debug!("pushing {:?} to event bus", WinEvent::Up);
-                                    events.lock().unwrap().events.push(WinEvent::Up);
+                                    win_events.push(WinEvent::Up);
                                 }
                                 VirtualKeyCode::A | VirtualKeyCode::Left => {
                                     log::debug!("pushing {:?} to event bus", WinEvent::Left);
-                                    events.lock().unwrap().events.push(WinEvent::Left);
+                                    win_events.push(WinEvent::Left);
                                 }
                                 VirtualKeyCode::S | VirtualKeyCode::Down => {
                                     log::debug!("pushing {:?} to event bus", WinEvent::Down);
-                                    events.lock().unwrap().events.push(WinEvent::Down);
+                                    win_events.push(WinEvent::Down);
                                 }
                                 VirtualKeyCode::D | VirtualKeyCode::Right => {
                                     log::debug!("pushing {:?} to event bus", WinEvent::Right);
-                                    events.lock().unwrap().events.push(WinEvent::Right);
+                                    win_events.push(WinEvent::Right);
                                 }
                                 _ => {
                                     log::debug!("event not mapped: {:?}", keycode);
@@ -245,18 +222,14 @@ pub fn run<T>(
                             "pushing resize ({:?}) to event bus",
                             WinEvent::Resize(physical_size.width, physical_size.height)
                         );
-                        events
-                            .lock()
-                            .unwrap()
-                            .events
-                            .push(WinEvent::Resize(physical_size.width, physical_size.height));
+                        win_events.push(WinEvent::Resize(physical_size.width, physical_size.height));
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         log::debug!(
                             "pushing resize ({:?}) to event bus",
                             WinEvent::Resize(new_inner_size.width, new_inner_size.height)
                         );
-                        events.lock().unwrap().events.push(WinEvent::Resize(
+                        win_events.push(WinEvent::Resize(
                             new_inner_size.width,
                             new_inner_size.height,
                         ));
@@ -266,9 +239,11 @@ pub fn run<T>(
             }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
                 log::debug!("pushing redraw ({:?}) to event bus", WinEvent::Redraw);
-                events.lock().unwrap().events.push(WinEvent::Redraw);
+                win_events.push(WinEvent::Redraw);
             }
             _ => {}
         };
+        
+        global_state.tick(win_events);
     });
 }

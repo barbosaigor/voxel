@@ -1,7 +1,6 @@
 use cgmath::prelude::*;
 use wgpu::util::DeviceExt;
-
-use crate::renderer;
+use crate::event::*;
 
 pub struct CameraBundle {
     pub camera: Camera,
@@ -140,25 +139,25 @@ impl CameraController {
         }
     }
 
-    pub fn process_events(&mut self, event: &renderer::WinEvent) -> bool {
+    pub fn process_events(&mut self, event: &WinEvent) -> bool {
         match event {
-            renderer::WinEvent::Space => {
+            WinEvent::Space => {
                 self.is_up_pressed = true;
                 true
             }
-            renderer::WinEvent::Up => {
+            WinEvent::Up => {
                 self.is_forward_pressed = true;
                 true
             }
-            renderer::WinEvent::Left => {
+            WinEvent::Left => {
                 self.is_left_pressed = true;
                 true
             }
-            renderer::WinEvent::Down => {
+            WinEvent::Down => {
                 self.is_backward_pressed = true;
                 true
             }
-            renderer::WinEvent::Right => {
+            WinEvent::Right => {
                 self.is_right_pressed = true;
                 true
             }

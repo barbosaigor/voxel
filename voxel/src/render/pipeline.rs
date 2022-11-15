@@ -1,7 +1,6 @@
-use crate::transform;
-
+use super::transform;
 use super::{model::Vertex, texture};
-use actor::{resources, model as actormodel};
+use crate::actor::{resources, model as actormodel};
 
 pub fn create_pipelines(
     device: &wgpu::Device,

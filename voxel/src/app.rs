@@ -1,24 +1,27 @@
-use std::{cell::RefCell, rc::Rc};
-use render::renderer;
+use crate::scene;
+
+use super::render::renderer;
 use super::state;
-use specs::WorldExt;
 
 pub struct App {
-    pub world: specs::World,
-    pub rndr: render::renderer::WindowRenderer,
-    pub state: Rc<RefCell<state::State>>,
+    pub global_state: state::State,
+    window: winit::window::Window,
+    ev_loop: winit::event_loop::EventLoop<()>,
 }
 
 impl App {
     pub fn new() -> Self {
+        env_logger::init();
+        let (ev_loop, window) = renderer::WindowRenderer::create_win();
+
         Self {
-            world: specs::World::new(),
-            rndr: renderer::WindowRenderer::new(),
-            state: Rc::new(RefCell::new(state::State::new())),
+            global_state: state::State::new(scene::Scene::new(), &window),
+            ev_loop,
+            window,
         }
     }
 
-    pub fn run(&mut self) {
-        self.rndr.run(self.state.borrow().actors.clone());
+    pub fn run(self) {
+        renderer::run(self.ev_loop, self.window, self.global_state);
     }
 }

@@ -1,14 +1,13 @@
-use crate::renderer;
-
 use super::camera;
 use super::model::{self, DrawModel};
 use super::pipeline;
 use super::texture;
-use actor;
+use crate::actor;
 use futures::executor;
 use std::iter;
 use wgpu;
 use winit::{self, window::Window};
+use crate::event::*;
 
 pub struct Render {
     pub surface: wgpu::Surface,
@@ -102,7 +101,7 @@ impl Render {
         }
     }
 
-    pub fn input(&mut self, event: &renderer::WinEvent) -> bool {
+    pub fn input(&mut self, event: &WinEvent) -> bool {
         self.camera_bundle.controller.process_events(event)
     }
 
