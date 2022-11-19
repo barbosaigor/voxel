@@ -12,14 +12,14 @@ pub struct State {
     pub world: specs::World,
     pub thread_pool: Arc<ThreadPool>,
     pub render: render::render::Render,
-    pub scene: scene::Scene,
+    pub scene: Box<dyn scene::Scene>,
 }
 
 impl State {
     // TODO: let it configurable
     const MAX_THREADS: usize = 8;
 
-    pub fn new(scene: scene::Scene, window: &winit::window::Window) -> Self {
+    pub fn new(scene: Box<dyn scene::Scene>, window: &winit::window::Window) -> Self {
         let thread_pool = Arc::new(
             ThreadPoolBuilder::new()
                 .num_threads(Self::MAX_THREADS)
@@ -29,14 +29,14 @@ impl State {
         );
 
         Self {
-            world: Self::setup(&scene, thread_pool.clone()),
+            world: Self::setup(&scene),
             thread_pool,
             render: render::render::Render::new(window),
             scene,
         }
     }
 
-    pub fn setup(mut scene: &scene::Scene, thread_pool: Arc<ThreadPool>) -> specs::World {
+    pub fn setup(scene: &Box<dyn scene::Scene>) -> specs::World {
         let mut world = specs::World::new();
 
         scene.setup(&mut world);

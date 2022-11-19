@@ -1,6 +1,5 @@
-use crate::scene;
-
 use super::render::renderer;
+use super::scene;
 use super::state;
 
 pub struct App {
@@ -10,12 +9,12 @@ pub struct App {
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(scene: Box<dyn scene::Scene>) -> Self {
         env_logger::init();
         let (ev_loop, window) = renderer::WindowRenderer::create_win();
 
         Self {
-            global_state: state::State::new(scene::Scene::new(), &window),
+            global_state: state::State::new(scene, &window),
             ev_loop,
             window,
         }
