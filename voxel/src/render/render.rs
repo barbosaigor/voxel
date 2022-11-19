@@ -7,7 +7,6 @@ use futures::executor;
 use std::iter;
 use wgpu;
 use winit::{self, window::Window};
-use crate::event::*;
 
 pub struct Render {
     pub surface: wgpu::Surface,
@@ -16,7 +15,6 @@ pub struct Render {
     pub config: wgpu::SurfaceConfiguration,
     pub size: (u32, u32),
     pub render_pipeline: wgpu::RenderPipeline,
-    pub camera_bundle: camera::CameraBundle,
     pub depth_texture: texture::Texture,
 }
 
@@ -66,8 +64,20 @@ impl Render {
         surface.configure(&device, &config);
 
         log::debug!("Camera");
-        let c = camera::Camera::default(config.width, config.height);
-        let camera_bundle = camera::CameraBundle::from_camera(&c, &device);
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
 
         log::debug!("Depth buffer");
         let depth_texture =
@@ -75,7 +85,7 @@ impl Render {
 
         log::debug!("Pipelines");
         let (render_pipeline,) =
-            pipeline::create_pipelines(&device, &config, &camera_bundle.bind_group_layout);
+            pipeline::create_pipelines(&device, &config, &camera_bind_group_layout);
 
         Self {
             surface,
@@ -84,14 +94,12 @@ impl Render {
             config,
             size: (size.width, size.height),
             render_pipeline: render_pipeline,
-            camera_bundle,
             depth_texture,
         }
     }
 
     pub fn resize(&mut self, (width, height): (u32, u32)) {
         if width > 0 && height > 0 {
-            self.camera_bundle.camera.aspect = self.config.width as f32 / self.config.height as f32;
             self.config.width = width;
             self.config.height = height;
             self.size = (width, height);
@@ -101,25 +109,11 @@ impl Render {
         }
     }
 
-    pub fn input(&mut self, event: &WinEvent) -> bool {
-        self.camera_bundle.controller.process_events(event)
-    }
-
-    pub fn update(&mut self) {
-        self.camera_bundle
-            .controller
-            .update_camera(&mut self.camera_bundle.camera);
-        self.camera_bundle
-            .uniform
-            .update_view_proj(&self.camera_bundle.camera);
-        self.queue.write_buffer(
-            &self.camera_bundle.buffer,
-            0,
-            bytemuck::cast_slice(&[self.camera_bundle.uniform]),
-        );
-    }
-
-    pub fn draw(&mut self, actors: &Vec<actor::Actor>) -> Result<(), wgpu::SurfaceError> {
+    pub fn draw(
+        &mut self,
+        actors: &Vec<actor::Actor>,
+        camera_bg: &wgpu::BindGroup,
+    ) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -135,6 +129,7 @@ impl Render {
             .iter()
             .map(|actor| model::BuffActor::new(&self.device, actor))
             .collect();
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -163,7 +158,7 @@ impl Render {
 
             for buff_actor in &buff_actors {
                 render_pass.set_pipeline(&self.render_pipeline);
-                render_pass.draw_model(&buff_actor, &self.camera_bundle.bind_group);
+                render_pass.draw_model(&buff_actor, camera_bg);
             }
         }
 
@@ -171,9 +166,5 @@ impl Render {
         output.present();
 
         Ok(())
-    }
-
-    pub fn update_camera(&mut self, c: camera::Camera) {
-        self.camera_bundle = camera::CameraBundle::from_camera(&c, &self.device);
     }
 }

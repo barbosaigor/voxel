@@ -1,4 +1,5 @@
 use crate::actor;
+use crate::camera;
 use crate::event;
 use crate::render;
 use crate::scene;
@@ -12,7 +13,7 @@ pub struct State {
     pub world: specs::World,
     pub thread_pool: Arc<ThreadPool>,
     pub render: render::render::Render,
-    pub scene: Box<dyn scene::Scene>,
+    pub scene: Option<Box<dyn scene::Scene>>,
 }
 
 impl State {
@@ -28,32 +29,36 @@ impl State {
                 .unwrap(),
         );
 
-        Self {
-            world: Self::setup(&scene),
+        let mut this = Self {
+            world: specs::World::new(),
             thread_pool,
             render: render::render::Render::new(window),
-            scene,
-        }
+            scene: None,
+        };
+
+        this.setup(scene);
+
+        this
     }
 
-    pub fn setup(scene: &Box<dyn scene::Scene>) -> specs::World {
-        let mut world = specs::World::new();
-
-        scene.setup(&mut world);
-
-        world
+    fn setup(&mut self, mut scene: Box<dyn scene::Scene>) {
+        scene.setup(self);
+        self.scene = Some(scene);
     }
 
     fn draw(&mut self, events: &Vec<event::WinEvent>, actors: &Vec<actor::Actor>) {
         use event::WinEvent::*;
-
+        
+        let mut camera = self.world.write_resource::<camera::CameraBundle>();
+        
         for ev in events.iter() {
             log::trace!("render system processing {:?}", ev);
 
             match ev {
                 Redraw => {
-                    self.render.update();
-                    let res = self.render.draw(actors);
+                    camera.update();
+
+                    let res = self.render.draw(actors, &camera.build_bind_group(&self.render.device));
                     match res {
                         Ok(_) => {}
                         // Reconfigure the surface if it's lost or outdated
@@ -75,8 +80,7 @@ impl State {
                 }
                 Resize(w, h) => self.render.resize((*w, *h)),
                 _ => {
-                    log::trace!("calling rendeder_engine input");
-                    self.render.input(ev);
+                    // log::trace!("calling rendeder_engine input");
                 }
             }
         }
@@ -99,12 +103,17 @@ impl ticker::Ticker for State {
 
         self.world.write_resource::<event::WinEvents>().events = win_events;
 
-        self.scene.
-            setup_systems(&mut self.world, self.thread_pool.clone())
+        self.scene
+            .as_mut()
+            .unwrap()
+            .setup_systems(&mut self.world, self.thread_pool.clone())
             .dispatch(&self.world);
 
         self.world.maintain();
 
-        self.world.write_resource::<event::WinEvents>().events.clear();
+        self.world
+            .write_resource::<event::WinEvents>()
+            .events
+            .clear();
     }
 }

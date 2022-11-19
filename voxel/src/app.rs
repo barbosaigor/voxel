@@ -20,7 +20,7 @@ impl App {
         }
     }
 
-    pub fn run(self) {
+    pub fn run(self) {        
         renderer::run(self.ev_loop, self.window, self.global_state);
     }
 }

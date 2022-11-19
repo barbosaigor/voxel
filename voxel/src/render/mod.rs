@@ -5,3 +5,5 @@ pub mod camera;
 pub mod transform;
 mod texture;
 mod pipeline;
+
+pub use render::Render;
