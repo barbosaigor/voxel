@@ -4,5 +4,5 @@ use std::sync::Arc;
 
 pub trait Scene {
     fn setup(&mut self, global_state: &mut state::State);
-    fn setup_systems(&mut self, world: &mut World, thread_pool: Arc<ThreadPool>) -> Dispatcher;
+    fn setup_systems<'a, 'b>(&mut self, dispatcher_builder: DispatcherBuilder<'a, 'b>) -> DispatcherBuilder<'a, 'b>;
 }

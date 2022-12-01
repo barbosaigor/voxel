@@ -199,7 +199,7 @@ pub fn run(
                                 }
                             }
                         }
-                    }
+                    }       
                     _ => {}
                 };
 
@@ -241,6 +241,12 @@ pub fn run(
                 log::debug!("pushing redraw ({:?}) to event bus", WinEvent::Redraw);
                 win_events.push(WinEvent::Redraw);
             }
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion{ delta, },
+                ..
+            } => {
+                win_events.push(WinEvent::MouseMotion(delta.0, delta.1))
+            } 
             _ => {}
         };
         

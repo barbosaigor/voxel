@@ -1,7 +1,14 @@
 use cgmath::Rotation3;
 use specs::{prelude::*, rayon::ThreadPool};
-use std::{sync::Arc, time::SystemTime};
-use voxel::{self, fly_camera, camera, event, scene, state, actor::{self, transform}};
+use std::{time::SystemTime};
+use voxel::{
+    self,
+    actor::{self, transform},
+    camera::{self, CameraController},
+    delta_time::DeltaTime,
+    event::{self, WinEvent},
+    fly_camera, scene, state,
+};
 
 pub struct Scene {}
 
@@ -12,16 +19,13 @@ impl Scene {
 }
 
 impl scene::Scene for Scene {
-    fn setup_systems(&mut self, mut world: &mut World, thread_pool: Arc<ThreadPool>) -> Dispatcher {
-        let mut dispatcher = specs::DispatcherBuilder::new()
-            .with_pool(thread_pool)
+    fn setup_systems<'a, 'b>(
+        &mut self,
+        dispatcher_builder: DispatcherBuilder<'a, 'b>,
+    ) -> DispatcherBuilder<'a, 'b> {
+        dispatcher_builder
             .with(AutoMovementSys {}, "auto_movement_sys", &[])
             .with(CameraSys {}, "camera_sys", &[])
-            .build();
-
-        dispatcher.setup(&mut world);
-
-        dispatcher
     }
 
     fn setup(&mut self, global_state: &mut state::State) {
@@ -30,11 +34,20 @@ impl scene::Scene for Scene {
 
         global_state.world.insert(event::WinEvents::default());
 
-        let c = camera::Camera::default(global_state.render.size.0, global_state.render.size.1);
-        let controller = fly_camera::FlyCameraController::new(0.2);
-        global_state
-            .world
-            .insert(camera::CameraBundle::from_camera(c, controller));
+        let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        let projection = camera::Projection::new(
+            global_state.render.size.0,
+            global_state.render.size.1,
+            cgmath::Deg(45.0),
+            0.1,
+            100.0,
+        );
+        let controller = fly_camera::FlyCameraController::new(4.0, 0.4);
+        global_state.world.insert(camera::CameraBundle::from_camera(
+            camera, projection, controller,
+        ));
+
+        global_state.world.insert(DeltaTime::default());
 
         // Spawn entities
         {
@@ -83,7 +96,7 @@ impl scene::Scene for Scene {
             global_state
                 .world
                 .create_entity()
-                .with(Vel(0.05))
+                .with(Vel(0.005))
                 .with(actor::Actor::new(
                     transform::Transform {
                         position: cgmath::Vector3 {
@@ -114,10 +127,14 @@ impl Component for Vel {
 struct AutoMovementSys {}
 
 impl<'a> System<'a> for AutoMovementSys {
-    type SystemData = (ReadStorage<'a, Vel>, WriteStorage<'a, actor::Actor>);
+    type SystemData = (
+        Read<'a, DeltaTime>,
+        ReadStorage<'a, Vel>,
+        WriteStorage<'a, actor::Actor>,
+    );
 
-    fn run(&mut self, (vels, mut actors): Self::SystemData) {
-        log::trace!("running autoMovement system");
+    fn run(&mut self, (dt, vels, mut actors): Self::SystemData) {
+        log::trace!("running AutoMovementSys system");
 
         for (vel, actor) in (&vels, &mut actors).join() {
             actor.transform.position.x += vel.0;
@@ -127,37 +144,18 @@ impl<'a> System<'a> for AutoMovementSys {
     }
 }
 
-struct CameraSys {
-
-}
+struct CameraSys {}
 
 impl<'a> System<'a> for CameraSys {
-    type SystemData = (
-        Write<'a, camera::CameraBundle>,
-        Read<'a, event::WinEvents>,
-    );
+    type SystemData = (Write<'a, camera::CameraBundle>, Read<'a, event::WinEvents>);
 
     fn run(&mut self, (mut camera, events): Self::SystemData) {
-        log::trace!("running autoMovement system");
-        use event::WinEvent;
+        log::trace!("running cameraSys system");
 
         for ev in &events.events {
+            camera.controller.process_events(ev);
             match ev {
-                WinEvent::Space => {
-                    camera.controller.is_up_pressed = true;
-                }
-                WinEvent::Up => {
-                    camera.controller.is_forward_pressed = true;
-                }
-                WinEvent::Left => {
-                    camera.controller.is_left_pressed = true;
-                }
-                WinEvent::Down => {
-                    camera.controller.is_backward_pressed = true;
-                }
-                WinEvent::Right => {
-                    camera.controller.is_right_pressed = true;
-                }
+                WinEvent::Resize(w, h) => camera.projection.resize((*w, *h)),
                 _ => {}
             }
         }

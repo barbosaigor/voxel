@@ -1,5 +1,7 @@
 use crate::actor;
 use crate::camera;
+use crate::delta_time;
+use crate::ecs;
 use crate::event;
 use crate::render;
 use crate::scene;
@@ -8,6 +10,7 @@ use specs::rayon::ThreadPool;
 use specs::rayon::ThreadPoolBuilder;
 use specs::WorldExt;
 use std::sync::Arc;
+use std::time;
 
 pub struct State {
     pub world: specs::World,
@@ -48,17 +51,20 @@ impl State {
 
     fn draw(&mut self, events: &Vec<event::WinEvent>, actors: &Vec<actor::Actor>) {
         use event::WinEvent::*;
-        
+
         let mut camera = self.world.write_resource::<camera::CameraBundle>();
-        
+        let mut dt = self.world.read_resource::<delta_time::DeltaTime>();
+
         for ev in events.iter() {
             log::trace!("render system processing {:?}", ev);
 
             match ev {
                 Redraw => {
-                    camera.update();
+                    camera.update(dt.dt);
 
-                    let res = self.render.draw(actors, &camera.build_bind_group(&self.render.device));
+                    let res = self
+                        .render
+                        .draw(actors, &camera.build_bind_group(&self.render.device));
                     match res {
                         Ok(_) => {}
                         // Reconfigure the surface if it's lost or outdated
@@ -85,6 +91,16 @@ impl State {
             }
         }
     }
+
+    fn setup_global_system<'a, 'b>(&self, dispatcher: specs::DispatcherBuilder<'a, 'b>) -> specs::DispatcherBuilder<'a, 'b> {
+        dispatcher
+            .with(
+                ecs::systems::delta_time::DeltaTimeSys {},
+                "delta_time_sys",
+                &[],
+            )
+            .with_barrier()
+    }
 }
 
 impl ticker::Ticker for State {
@@ -103,11 +119,12 @@ impl ticker::Ticker for State {
 
         self.world.write_resource::<event::WinEvents>().events = win_events;
 
-        self.scene
-            .as_mut()
-            .unwrap()
-            .setup_systems(&mut self.world, self.thread_pool.clone())
-            .dispatch(&self.world);
+        let mut dispatcher_builder = specs::DispatcherBuilder::new().with_pool(self.thread_pool.clone());
+        dispatcher_builder = self.setup_global_system(dispatcher_builder);
+        dispatcher_builder = self.scene.as_mut().unwrap().setup_systems(dispatcher_builder);
+        let mut dispatcher = dispatcher_builder.build();
+        dispatcher.setup(&mut self.world);
+        dispatcher.dispatch(&self.world);
 
         self.world.maintain();
 
