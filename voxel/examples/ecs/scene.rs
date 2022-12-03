@@ -1,6 +1,5 @@
 use cgmath::Rotation3;
-use specs::{prelude::*, rayon::ThreadPool};
-use std::{time::SystemTime};
+use specs::prelude::*;
 use voxel::{
     self,
     actor::{self, transform},
@@ -42,7 +41,7 @@ impl scene::Scene for Scene {
             0.1,
             100.0,
         );
-        let controller = fly_camera::FlyCameraController::new(4.0, 0.4);
+        let controller = fly_camera::FlyCameraController::new(8.0, 1.5);
         global_state.world.insert(camera::CameraBundle::from_camera(
             camera, projection, controller,
         ));
@@ -137,9 +136,7 @@ impl<'a> System<'a> for AutoMovementSys {
         log::trace!("running AutoMovementSys system");
 
         for (vel, actor) in (&vels, &mut actors).join() {
-            actor.transform.position.x += vel.0;
-            actor.transform.position.y +=
-                5.0 * f32::sin(SystemTime::now().elapsed().unwrap().as_millis() as f32);
+            actor.transform.position.x += vel.0 * dt.dt.as_secs_f32();
         }
     }
 }

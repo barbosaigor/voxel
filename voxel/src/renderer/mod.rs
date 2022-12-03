@@ -1,4 +1,4 @@
-pub mod renderer;
+pub mod window;
 pub mod render;
 pub mod model;
 pub mod camera;

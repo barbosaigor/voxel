@@ -1,4 +1,3 @@
-use super::camera;
 use super::model::{self, DrawModel};
 use super::pipeline;
 use super::texture;

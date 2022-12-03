@@ -3,19 +3,18 @@ use crate::camera;
 use crate::delta_time;
 use crate::ecs;
 use crate::event;
-use crate::render;
+use crate::renderer;
 use crate::scene;
 use crate::ticker;
 use specs::rayon::ThreadPool;
 use specs::rayon::ThreadPoolBuilder;
 use specs::WorldExt;
 use std::sync::Arc;
-use std::time;
 
 pub struct State {
     pub world: specs::World,
-    pub thread_pool: Arc<ThreadPool>,
-    pub render: render::render::Render,
+    pub ecs_thread_pool: Arc<ThreadPool>,
+    pub render: renderer::render::Render,
     pub scene: Option<Box<dyn scene::Scene>>,
 }
 
@@ -34,8 +33,8 @@ impl State {
 
         let mut this = Self {
             world: specs::World::new(),
-            thread_pool,
-            render: render::render::Render::new(window),
+            ecs_thread_pool: thread_pool,
+            render: renderer::render::Render::new(window),
             scene: None,
         };
 
@@ -53,7 +52,7 @@ impl State {
         use event::WinEvent::*;
 
         let mut camera = self.world.write_resource::<camera::CameraBundle>();
-        let mut dt = self.world.read_resource::<delta_time::DeltaTime>();
+        let dt = self.world.read_resource::<delta_time::DeltaTime>();
 
         for ev in events.iter() {
             log::trace!("render system processing {:?}", ev);
@@ -119,7 +118,7 @@ impl ticker::Ticker for State {
 
         self.world.write_resource::<event::WinEvents>().events = win_events;
 
-        let mut dispatcher_builder = specs::DispatcherBuilder::new().with_pool(self.thread_pool.clone());
+        let mut dispatcher_builder = specs::DispatcherBuilder::new().with_pool(self.ecs_thread_pool.clone());
         dispatcher_builder = self.setup_global_system(dispatcher_builder);
         dispatcher_builder = self.scene.as_mut().unwrap().setup_systems(dispatcher_builder);
         let mut dispatcher = dispatcher_builder.build();

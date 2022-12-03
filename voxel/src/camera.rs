@@ -1,6 +1,5 @@
 use crate::{event::*, fly_camera};
 use cgmath::{prelude::*, Point3};
-use instant::Duration;
 use std::{f32::consts, time};
 use wgpu::util::DeviceExt;
 
@@ -33,8 +32,7 @@ impl CameraBundle {
     }
 
     pub fn update(&mut self, dt: time::Duration) {
-        self.controller
-            .update_camera(&mut self.camera, dt);
+        self.controller.update_camera(&mut self.camera, dt);
         self.uniform
             .update_view_proj(&self.camera, &self.projection);
     }
@@ -126,8 +124,10 @@ pub struct Projection {
 impl Default for Projection {
     fn default() -> Self {
         Self {
+            aspect: 0.0,
             fovy: cgmath::Rad(0.0),
-            ..Default::default()
+            zfar: 0.0,
+            znear: 0.0,
         }
     }
 }
