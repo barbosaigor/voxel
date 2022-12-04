@@ -2,11 +2,31 @@
 name = "voxel"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 cgmath = "0.18"
+winit = "0.26"
+bytemuck = { version = "1.4", features = [ "derive" ] }
+futures = "0.3"
+pollster = "0.2"
+anyhow = "1.0"
+tobj = { version = "3.2", features = ["async"]}
+log = "0.4"
+env_logger = "0.9"
+wgpu = "0.13.1"
 specs = { version = "0.18.0", features = ["specs-derive"] }
-render = { path = "../render" }
-actor = { path = "../actor" }
+instant = "0.1"
+rand = "0.8.5"
+
+[dependencies.image]
+version = "0.24"
+default-features = false
+features = ["png", "jpeg"]
+
+[build-dependencies]
+anyhow = "1.0"
+fs_extra = "1.2"
+glob = "0.3"
