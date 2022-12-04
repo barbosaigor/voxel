@@ -9,3 +9,7 @@ pub mod camera;
 pub mod fly_camera;
 pub mod delta_time;
 pub mod ecs;
+
+pub fn run(game: Box<dyn scene::Scene>) {
+    app::App::new(game).run();
+}

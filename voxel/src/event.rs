@@ -1,5 +1,6 @@
 #[derive(Clone, Debug)]
 pub enum WinEvent {
+    LShift,
     Space,
     W,
     A,

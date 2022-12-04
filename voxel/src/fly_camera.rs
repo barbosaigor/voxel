@@ -55,8 +55,12 @@ impl CameraController for FlyCameraController {
                 self.amount_up = 1.0;
                 true
             }
+            WinEvent::LShift => {
+                self.amount_down = 1.0;
+                true
+            }
             WinEvent::Up => {
-                self.amount_up = 1.0;
+                self.amount_forward = 1.0;
                 true
             }
             WinEvent::Left => {
@@ -64,7 +68,7 @@ impl CameraController for FlyCameraController {
                 true
             }
             WinEvent::Down => {
-                self.amount_down = 1.0;
+                self.amount_backward = 1.0;
                 true
             }
             WinEvent::Right => {

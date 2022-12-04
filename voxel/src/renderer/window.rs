@@ -34,41 +34,40 @@ pub fn run(
                     WindowEvent::KeyboardInput {
                         input:
                             KeyboardInput {
-                                state,
+                                state: ElementState::Pressed,
                                 virtual_keycode: Some(keycode),
                                 ..
                             },
                         ..
-                    } => {
-                        let is_pressed = *state == ElementState::Pressed;
-                        if is_pressed {
-                            match keycode {
-                                VirtualKeyCode::Space => {
-                                    log::debug!("pushing {:?} to event bus", WinEvent::Space);
-                                    win_events.push(WinEvent::Space);
-                                }
-                                VirtualKeyCode::W | VirtualKeyCode::Up => {
-                                    log::debug!("pushing {:?} to event bus", WinEvent::Up);
-                                    win_events.push(WinEvent::Up);
-                                }
-                                VirtualKeyCode::A | VirtualKeyCode::Left => {
-                                    log::debug!("pushing {:?} to event bus", WinEvent::Left);
-                                    win_events.push(WinEvent::Left);
-                                }
-                                VirtualKeyCode::S | VirtualKeyCode::Down => {
-                                    log::debug!("pushing {:?} to event bus", WinEvent::Down);
-                                    win_events.push(WinEvent::Down);
-                                }
-                                VirtualKeyCode::D | VirtualKeyCode::Right => {
-                                    log::debug!("pushing {:?} to event bus", WinEvent::Right);
-                                    win_events.push(WinEvent::Right);
-                                }
-                                _ => {
-                                    log::debug!("event not mapped: {:?}", keycode);
-                                }
-                            }
+                    } => match keycode {
+                        VirtualKeyCode::Space => {
+                            log::debug!("pushing {:?} to event bus", WinEvent::Space);
+                            win_events.push(WinEvent::Space);
                         }
-                    }
+                        VirtualKeyCode::W | VirtualKeyCode::Up => {
+                            log::debug!("pushing {:?} to event bus", WinEvent::Up);
+                            win_events.push(WinEvent::Up);
+                        }
+                        VirtualKeyCode::A | VirtualKeyCode::Left => {
+                            log::debug!("pushing {:?} to event bus", WinEvent::Left);
+                            win_events.push(WinEvent::Left);
+                        }
+                        VirtualKeyCode::S | VirtualKeyCode::Down => {
+                            log::debug!("pushing {:?} to event bus", WinEvent::Down);
+                            win_events.push(WinEvent::Down);
+                        }
+                        VirtualKeyCode::D | VirtualKeyCode::Right => {
+                            log::debug!("pushing {:?} to event bus", WinEvent::Right);
+                            win_events.push(WinEvent::Right);
+                        }
+                        VirtualKeyCode::LShift => {
+                            log::debug!("pushing {:?} to event bus", WinEvent::LShift);
+                            win_events.push(WinEvent::LShift);
+                        }
+                        _ => {
+                            log::debug!("event not mapped: {:?}", keycode);
+                        }
+                    },
                     _ => {}
                 };
 

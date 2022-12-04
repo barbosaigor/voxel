@@ -19,6 +19,7 @@ env_logger = "0.9"
 wgpu = "0.13.1"
 specs = { version = "0.18.0", features = ["specs-derive"] }
 instant = "0.1"
+rand = "0.8.5"
 
 [dependencies.image]
 version = "0.24"

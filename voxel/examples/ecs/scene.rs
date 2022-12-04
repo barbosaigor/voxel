@@ -1,10 +1,12 @@
 use cgmath::Rotation3;
+use core::time;
+use rand::{self, Rng};
 use specs::prelude::*;
 use voxel::{
     self,
     actor::{self, transform},
     camera::{self, CameraController},
-    delta_time::DeltaTime,
+    delta_time::{self, DeltaTime},
     event::{self, WinEvent},
     fly_camera, scene, state,
 };
@@ -24,6 +26,7 @@ impl scene::Scene for Scene {
     ) -> DispatcherBuilder<'a, 'b> {
         dispatcher_builder
             .with(AutoMovementSys {}, "auto_movement_sys", &[])
+            .with(SpawnerSys, "spawner_sys", &[])
             .with(CameraSys {}, "camera_sys", &[])
     }
 
@@ -41,12 +44,13 @@ impl scene::Scene for Scene {
             0.1,
             100.0,
         );
-        let controller = fly_camera::FlyCameraController::new(8.0, 1.5);
+        let controller = fly_camera::FlyCameraController::new(100.0, 3.0);
         global_state.world.insert(camera::CameraBundle::from_camera(
             camera, projection, controller,
         ));
 
         global_state.world.insert(DeltaTime::default());
+        global_state.world.insert(delta_time::now());
 
         // Spawn entities
         {
@@ -95,7 +99,7 @@ impl scene::Scene for Scene {
             global_state
                 .world
                 .create_entity()
-                .with(Vel(0.005))
+                .with(Vel(0.05))
                 .with(actor::Actor::new(
                     transform::Transform {
                         position: cgmath::Vector3 {
@@ -155,6 +159,50 @@ impl<'a> System<'a> for CameraSys {
                 WinEvent::Resize(w, h) => camera.projection.resize((*w, *h)),
                 _ => {}
             }
+        }
+    }
+}
+
+struct SpawnerSys;
+
+impl<'a> System<'a> for SpawnerSys {
+    type SystemData = (
+        Entities<'a>,
+        Read<'a, LazyUpdate>,
+        Write<'a, time::Duration>
+    );
+
+    fn run(&mut self, (entites, updater, mut last_time): Self::SystemData) {
+        log::trace!("running SpawnerSys system");
+
+        let now = delta_time::now();
+        let dt = now - *last_time;
+        if dt.as_secs_f32() > 1.0 {
+            *last_time = now;
+            let mut r = rand::thread_rng();
+
+            let (x, y, z): (f32, f32, f32) = (r.gen_range(-5.0..5.0), r.gen_range(-5.0..5.0), r.gen_range(-5.0..5.0));
+            let (red, green, blue): (f32, f32, f32) = r.gen();
+
+            let degree: f32 = r.gen();
+            let vel = r.gen_range(-2.0..2.0);
+
+            let entity = entites.create();
+            updater.insert(entity, Vel(vel));
+            updater.insert(
+                entity,
+                actor::Actor::new(
+                    transform::Transform {
+                        position: cgmath::Vector3 { x: x * 10.0, y: y * 10.0, z: z * 10.0 },
+                        rotation: cgmath::Quaternion::from_axis_angle(
+                            cgmath::Vector3::unit_z(),
+                            cgmath::Deg(degree * 360.0),
+                        ),
+                    },
+                    "/res/cube.obj",
+                    Some([red, green, blue, 1.0]),
+                ),
+            );
         }
     }
 }

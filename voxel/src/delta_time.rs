@@ -24,6 +24,6 @@ impl DeltaTime {
     }
 }
 
-fn now() -> time::Duration {
+pub fn now() -> time::Duration {
     time::SystemTime::now().duration_since(time::UNIX_EPOCH).unwrap()
 }
