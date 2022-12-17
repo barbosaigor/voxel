@@ -61,16 +61,37 @@ impl scene::Scene for Scene {
                 .with(actor::Actor::new(
                     transform::Transform {
                         position: cgmath::Vector3 {
-                            x: 2.5,
-                            y: 2.5,
-                            z: 2.5,
+                            x: 0.0,
+                            y: 0.0,
+                            z: 0.0,
                         },
                         rotation: cgmath::Quaternion::from_axis_angle(
                             cgmath::Vector3::unit_z(),
                             cgmath::Deg(0.0),
                         ),
                     },
-                    "/res/cube.obj",
+                    "/res/halfcube.obj",
+                    Some([0.7, 0.3, 0.3, 1.0]),
+                ))
+                .build();
+
+            global_state
+                .world
+                .create_entity()
+                .with(Vel(0.0005))
+                .with(actor::Actor::new(
+                    transform::Transform {
+                        position: cgmath::Vector3 {
+                            x: 1.0,
+                            y: 0.0,
+                            z: 0.0,
+                        },
+                        rotation: cgmath::Quaternion::from_axis_angle(
+                            cgmath::Vector3::unit_z(),
+                            cgmath::Deg(0.0),
+                        ),
+                    },
+                    "/res/halfcube.obj",
                     Some([0.7, 0.3, 0.3, 1.0]),
                 ))
                 .build();
@@ -82,16 +103,16 @@ impl scene::Scene for Scene {
                 .with(actor::Actor::new(
                     transform::Transform {
                         position: cgmath::Vector3 {
-                            x: -2.5,
-                            y: -2.5,
-                            z: -2.5,
+                            x: 0.0,
+                            y: 1.0,
+                            z: 0.0,
                         },
                         rotation: cgmath::Quaternion::from_axis_angle(
                             cgmath::Vector3::unit_z(),
                             cgmath::Deg(0.0),
                         ),
                     },
-                    "/res/cube.obj",
+                    "/res/halfcube.obj",
                     Some([0.3, 0.7, 0.3, 1.0]),
                 ))
                 .build();
@@ -105,14 +126,14 @@ impl scene::Scene for Scene {
                         position: cgmath::Vector3 {
                             x: 0.0,
                             y: 0.0,
-                            z: 0.0,
+                            z: 1.0,
                         },
                         rotation: cgmath::Quaternion::from_axis_angle(
                             cgmath::Vector3::unit_z(),
                             cgmath::Deg(0.0),
                         ),
                     },
-                    "/res/cube.obj",
+                    "/res/halfcube.obj",
                     Some([0.3, 0.3, 0.7, 1.0]),
                 ))
                 .build();
@@ -169,7 +190,7 @@ impl<'a> System<'a> for SpawnerSys {
     type SystemData = (
         Entities<'a>,
         Read<'a, LazyUpdate>,
-        Write<'a, time::Duration>
+        Write<'a, time::Duration>,
     );
 
     fn run(&mut self, (entites, updater, mut last_time): Self::SystemData) {
@@ -181,7 +202,11 @@ impl<'a> System<'a> for SpawnerSys {
             *last_time = now;
             let mut r = rand::thread_rng();
 
-            let (x, y, z): (f32, f32, f32) = (r.gen_range(-5.0..5.0), r.gen_range(-5.0..5.0), r.gen_range(-5.0..5.0));
+            let (x, y, z): (f32, f32, f32) = (
+                r.gen_range(-5.0..5.0),
+                r.gen_range(-5.0..5.0),
+                r.gen_range(-5.0..5.0),
+            );
             let (red, green, blue): (f32, f32, f32) = r.gen();
 
             let degree: f32 = r.gen();
@@ -193,13 +218,17 @@ impl<'a> System<'a> for SpawnerSys {
                 entity,
                 actor::Actor::new(
                     transform::Transform {
-                        position: cgmath::Vector3 { x: x * 10.0, y: y * 10.0, z: z * 10.0 },
+                        position: cgmath::Vector3 {
+                            x: x * 10.0,
+                            y: y * 10.0,
+                            z: z * 10.0,
+                        },
                         rotation: cgmath::Quaternion::from_axis_angle(
                             cgmath::Vector3::unit_z(),
                             cgmath::Deg(degree * 360.0),
                         ),
                     },
-                    "/res/cube.obj",
+                    "/res/halfcube.obj",
                     Some([red, green, blue, 1.0]),
                 ),
             );

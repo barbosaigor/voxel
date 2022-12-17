@@ -21,6 +21,8 @@ pub fn run(
     mut game_ticker: game_ticker::GameTicker,
     mut global_state: state::State,
 ) {
+    window.set_cursor_visible(false);
+
     ev_loop.run(move |event, _, control_flow| {
         log::trace!("running event loop");
         *control_flow = ControlFlow::Poll;
@@ -42,7 +44,11 @@ pub fn run(
                             },
                         ..
                     } => match keycode {
-                        VirtualKeyCode::Space => {
+                        VirtualKeyCode::LShift | VirtualKeyCode::Q => {
+                            log::debug!("pushing {:?} to event bus", WinEvent::LShift);
+                            win_events.push(WinEvent::LShift);
+                        }
+                        VirtualKeyCode::Space | VirtualKeyCode::E => {
                             log::debug!("pushing {:?} to event bus", WinEvent::Space);
                             win_events.push(WinEvent::Space);
                         }
@@ -61,10 +67,6 @@ pub fn run(
                         VirtualKeyCode::D | VirtualKeyCode::Right => {
                             log::debug!("pushing {:?} to event bus", WinEvent::Right);
                             win_events.push(WinEvent::Right);
-                        }
-                        VirtualKeyCode::LShift => {
-                            log::debug!("pushing {:?} to event bus", WinEvent::LShift);
-                            win_events.push(WinEvent::LShift);
                         }
                         _ => {
                             log::debug!("event not mapped: {:?}", keycode);
