@@ -18,7 +18,7 @@ pub fn create_win() -> (winit::event_loop::EventLoop<()>, winit::window::Window)
 pub fn run(
     ev_loop: winit::event_loop::EventLoop<()>,
     window: winit::window::Window,
-    mut game_ticker: game_ticker::GameTicker,
+    mut game_ticker: game_ticker::GameTicker<'static, 'static>,
     mut global_state: state::State,
 ) {
     window.set_cursor_visible(false);

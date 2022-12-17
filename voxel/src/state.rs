@@ -8,7 +8,6 @@ use std::sync::Arc;
 
 pub struct State {
     pub world: specs::World,
-    pub ecs_thread_pool: Arc<ThreadPool>,
     pub render: renderer::render::Render,
     pub scene: Option<Box<dyn scene::Scene>>,
 }
@@ -28,7 +27,6 @@ impl State {
 
         let mut this = Self {
             world: specs::World::new(),
-            ecs_thread_pool: thread_pool,
             render: renderer::render::Render::new(window),
             scene: None,
         };

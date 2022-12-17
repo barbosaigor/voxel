@@ -1,10 +1,27 @@
-use specs::WorldExt;
+use specs::{WorldExt, Dispatcher};
 
 use crate::{actor, camera, delta_time, event, state::State, ticker};
 
-pub struct GameTicker {}
+pub struct GameTicker<'a, 'b> {
+    dispatcher: Box<Dispatcher<'a, 'b>>,
+}
 
-impl GameTicker {
+impl<'a, 'b> GameTicker<'a, 'b> {
+    pub fn setup(global_state: &mut State) -> Self {
+        let mut dispatcher_builder = specs::DispatcherBuilder::new();
+        dispatcher_builder = global_state.setup_global_system(dispatcher_builder);
+        dispatcher_builder = global_state
+            .scene
+            .as_mut()
+            .unwrap()
+            .setup_systems(dispatcher_builder);
+        let dispatcher = dispatcher_builder.build();
+
+        Self {
+            dispatcher: Box::new(dispatcher),
+        }
+    }
+
     fn draw(
         &mut self,
         global_state: &mut State,
@@ -55,7 +72,7 @@ impl GameTicker {
     }
 }
 
-impl ticker::Ticker for GameTicker {
+impl<'a, 'b> ticker::Ticker for GameTicker<'a, 'b>{
     fn tick(&mut self, global_state: &mut State, win_events: Vec<event::WinEvent>) {
         log::trace!("running tick for game ticker");
 
@@ -74,17 +91,8 @@ impl ticker::Ticker for GameTicker {
             .write_resource::<event::WinEvents>()
             .events = win_events;
 
-        let mut dispatcher_builder =
-            specs::DispatcherBuilder::new().with_pool(global_state.ecs_thread_pool.clone());
-        dispatcher_builder = global_state.setup_global_system(dispatcher_builder);
-        dispatcher_builder = global_state
-            .scene
-            .as_mut()
-            .unwrap()
-            .setup_systems(dispatcher_builder);
-        let mut dispatcher = dispatcher_builder.build();
-        dispatcher.setup(&mut global_state.world);
-        dispatcher.dispatch(&global_state.world);
+        self.dispatcher.setup(&mut global_state.world);
+        self.dispatcher.dispatch(&global_state.world);
 
         global_state.world.maintain();
 
