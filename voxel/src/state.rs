@@ -1,10 +1,7 @@
 use crate::ecs;
 use crate::renderer;
 use crate::scene;
-use specs::rayon::ThreadPool;
-use specs::rayon::ThreadPoolBuilder;
 use specs::WorldExt;
-use std::sync::Arc;
 
 pub struct State {
     pub world: specs::World,
@@ -13,18 +10,7 @@ pub struct State {
 }
 
 impl State {
-    // TODO: let it configurable
-    const MAX_THREADS: usize = 8;
-
     pub fn new(scene: Box<dyn scene::Scene>, window: &winit::window::Window) -> Self {
-        let thread_pool = Arc::new(
-            ThreadPoolBuilder::new()
-                .num_threads(Self::MAX_THREADS)
-                .thread_name(|i| format!("rayon-voxel-{}", i))
-                .build()
-                .unwrap(),
-        );
-
         let mut this = Self {
             world: specs::World::new(),
             render: renderer::render::Render::new(window),
