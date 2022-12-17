@@ -44,7 +44,7 @@ impl scene::Scene for Scene {
             0.1,
             100.0,
         );
-        let controller = fly_camera::FlyCameraController::new(100.0, 3.0);
+        let controller = fly_camera::FlyCameraController::new(500.0, 7.0);
         global_state.world.insert(camera::CameraBundle::from_camera(
             camera, projection, controller,
         ));

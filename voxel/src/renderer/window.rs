@@ -1,4 +1,5 @@
 use crate::event::*;
+use crate::game_ticker;
 use crate::state;
 use crate::ticker::Ticker;
 use winit::{
@@ -17,6 +18,7 @@ pub fn create_win() -> (winit::event_loop::EventLoop<()>, winit::window::Window)
 pub fn run(
     ev_loop: winit::event_loop::EventLoop<()>,
     window: winit::window::Window,
+    mut game_ticker: game_ticker::GameTicker,
     mut global_state: state::State,
 ) {
     ev_loop.run(move |event, _, control_flow| {
@@ -117,6 +119,6 @@ pub fn run(
             _ => {}
         };
 
-        global_state.tick(win_events);
+        game_ticker.tick(&mut global_state, win_events);
     });
 }
