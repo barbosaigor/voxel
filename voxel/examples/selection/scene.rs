@@ -7,7 +7,7 @@ use voxel::{
     actor::{self, transform},
     camera::{self, CameraController},
     delta_time::{self, DeltaTime},
-    event::{self, WinEvent},
+    event::{self, WinEvent, WinEvents},
     fly_camera, scene, state,
 };
 
@@ -28,6 +28,9 @@ impl scene::Scene for Scene {
             .with(AutoMovementSys {}, "auto_movement_sys", &[])
             .with(SpawnerSys, "spawner_sys", &[])
             .with(CameraSys {}, "camera_sys", &[])
+            .with(MousePosUpdaterSys {}, "mouse_pos_sys", &[])
+            .with(RayCastSys {}, "raycast_sys", &[])
+            .with(WinSizeUpdaterSys {}, "win_size_updater_sys", &[])
     }
 
     fn setup(&mut self, global_state: &mut state::State) {
@@ -44,13 +47,15 @@ impl scene::Scene for Scene {
             0.1,
             100.0,
         );
-        let controller = fly_camera::FlyCameraController::new(700.0, 9.0);
+        let controller = fly_camera::FlyCameraController::new(1500.0, 9.0);
         global_state.world.insert(camera::CameraBundle::from_camera(
             camera, projection, controller,
         ));
 
         global_state.world.insert(DeltaTime::default());
         global_state.world.insert(delta_time::now());
+        global_state.world.insert(LastMousePos(0.0, 0.0));
+        global_state.world.insert(WinSize(0, 0));
 
         // Spawn entities
         {
@@ -71,90 +76,6 @@ impl scene::Scene for Scene {
                     },
                     "/res/plane.obj",
                     Some([0.3, 0.3, 0.7, 1.0]),
-                ))
-                .build();
-
-            global_state
-                .world
-                .create_entity()
-                .with(Vel(0.0005))
-                .with(actor::Actor::new(
-                    transform::Transform {
-                        position: cgmath::Vector3 {
-                            x: 0.0,
-                            y: 0.5,
-                            z: 0.0,
-                        },
-                        rotation: cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        ),
-                    },
-                    "/res/halfcube.obj",
-                    Some([0.7, 0.3, 0.3, 1.0]),
-                ))
-                .build();
-
-            global_state
-                .world
-                .create_entity()
-                .with(Vel(0.0005))
-                .with(actor::Actor::new(
-                    transform::Transform {
-                        position: cgmath::Vector3 {
-                            x: 1.0,
-                            y: 0.5,
-                            z: 0.0,
-                        },
-                        rotation: cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        ),
-                    },
-                    "/res/halfcube.obj",
-                    Some([0.7, 0.3, 0.3, 1.0]),
-                ))
-                .build();
-
-            global_state
-                .world
-                .create_entity()
-                .with(Vel(-0.0005))
-                .with(actor::Actor::new(
-                    transform::Transform {
-                        position: cgmath::Vector3 {
-                            x: 0.0,
-                            y: 1.5,
-                            z: 0.0,
-                        },
-                        rotation: cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        ),
-                    },
-                    "/res/halfcube.obj",
-                    Some([0.3, 0.7, 0.3, 1.0]),
-                ))
-                .build();
-
-            global_state
-                .world
-                .create_entity()
-                .with(Vel(0.05))
-                .with(actor::Actor::new(
-                    transform::Transform {
-                        position: cgmath::Vector3 {
-                            x: 0.0,
-                            y: 0.5,
-                            z: 1.0,
-                        },
-                        rotation: cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        ),
-                    },
-                    "/res/halfcube.obj",
-                    Some([0.4, 0.3, 0.2, 1.0]),
                 ))
                 .build();
         }
@@ -253,5 +174,196 @@ impl<'a> System<'a> for SpawnerSys {
                 ),
             );
         }
+    }
+}
+
+#[derive(Debug, Default)]
+struct LastMousePos(f64, f64);
+
+struct MousePosUpdaterSys;
+
+impl<'a> System<'a> for MousePosUpdaterSys {
+    type SystemData = (Read<'a, WinEvents>, Write<'a, LastMousePos>);
+
+    fn run(&mut self, (win_events, mut last_mouse_pos): Self::SystemData) {
+        log::trace!("running MousePosUpdaterSys system");
+
+        for ev in &win_events.events {
+            match ev {
+                WinEvent::MouseMoved(x, y) => {
+                    last_mouse_pos.0 = *x;
+                    last_mouse_pos.1 = *y;
+                    log::trace!(
+                        "MousePosUpdaterSys: updating last mouse position to ({:?})",
+                        *last_mouse_pos
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct WinSize(u32, u32);
+
+struct WinSizeUpdaterSys;
+
+impl<'a> System<'a> for WinSizeUpdaterSys {
+    type SystemData = (Read<'a, WinEvents>, Write<'a, WinSize>);
+
+    fn run(&mut self, (win_events, mut win_size): Self::SystemData) {
+        log::trace!("running WinSizeUpdaterSys system");
+
+        for ev in &win_events.events {
+            match ev {
+                WinEvent::Resize(w, h) => {
+                    win_size.0 = *w;
+                    win_size.1 = *h;
+
+                    log::trace!("WinSizeUpdaterSys: updating winsize to ({:?})", *win_size);
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+struct RayCastSys;
+
+impl<'a> System<'a> for RayCastSys {
+    type SystemData = (
+        Read<'a, WinEvents>,
+        Write<'a, LastMousePos>,
+        Entities<'a>,
+        Read<'a, LazyUpdate>,
+        Read<'a, WinSize>,
+        Write<'a, camera::CameraBundle>,
+    );
+
+    fn run(&mut self, (win_events, cursor, entities, updater, win_size, camera): Self::SystemData) {
+        log::trace!("running RayCastSys system");
+
+        for ev in &win_events.events {
+            match ev {
+                WinEvent::MouseButtons(event::MouseButton::Left) => {
+                    let intersection = raycast::intersection(
+                        (cursor.0, cursor.1),
+                        (win_size.0, win_size.1),
+                        &camera,
+                    );
+
+                    if let None = intersection {
+                        return;
+                    }
+
+                    let (x, y, z) = intersection.unwrap();
+
+                    let mut r = rand::thread_rng();
+
+                    let (red, green, blue): (f32, f32, f32) = r.gen();
+
+                    let degree: f32 = r.gen();
+                    let vel = r.gen_range(-2.0..2.0);
+
+                    let entity = entities.create();
+                    updater.insert(entity, Vel(vel * 3.0));
+                    updater.insert(
+                        entity,
+                        actor::Actor::new(
+                            transform::Transform {
+                                position: cgmath::Vector3 {
+                                    x: x as f32,
+                                    y: y as f32,
+                                    z: z as f32,
+                                },
+                                rotation: cgmath::Quaternion::from_axis_angle(
+                                    cgmath::Vector3::unit_z(),
+                                    cgmath::Deg(degree * 360.0),
+                                ),
+                            },
+                            "/res/halfcube.obj",
+                            Some([red, green, blue, 1.0]),
+                        ),
+                    );
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+mod raycast {
+    use voxel::camera;
+
+    pub fn ray(
+        cursor: (f64, f64),
+        win: (u32, u32),
+        camera_projection: [[f32; 4]; 4],
+        view_matrix: [[f32; 4]; 4],
+    ) -> nalgebra::Vector3<f64> {
+        let (x, y) = normalize_cursor(cursor, win);
+
+        let ray_clip = nalgebra::Vector4::new(x as f32, y as f32, -1.0, 1.0);
+
+        let inverse_camera_projection = nalgebra::Matrix4::from(camera_projection)
+            .try_inverse()
+            .unwrap();
+
+        let ray_eye = inverse_camera_projection * ray_clip;
+
+        let ray_eye_unproj = nalgebra::Vector4::new(ray_eye.x as f32, ray_eye.y as f32, -1.0, 0.0);
+
+        let inverse_view_matrix = nalgebra::Matrix4::from(view_matrix).try_inverse().unwrap();
+
+        let ray_world_matrix = inverse_view_matrix * ray_eye_unproj;
+
+        // let ray_world = ray_world_matrix.normalize();
+        let ray_world = ray_world_matrix;
+        // let ray_world = ray_world_matrix.xyz();
+
+        nalgebra::Vector3::new(ray_world.x as f64, ray_world.y as f64, ray_world.z as f64)
+    }
+
+    // normalizes cursor to -1 to 1
+    fn normalize_cursor(cursor: (f64, f64), win: (u32, u32)) -> (f64, f64) {
+        (
+            (2.0 * cursor.0) / (win.0 as f64) - 1.0,
+            1.0 - 2.0 * cursor.1 / (win.1 as f64),
+        )
+    }
+
+    pub fn intersection(
+        cursor: (f64, f64),
+        win_size: (u32, u32),
+        cam: &camera::CameraBundle,
+    ) -> Option<(f64, f64, f64)> {
+        // TODO: how do I get the size of the window?
+        // maybe I should externalize render as resource
+        let ray_norm = ray(
+            (cursor.0, cursor.1),
+            (win_size.0, win_size.1),
+            cam.projection.build_view_projection_matrix().into(),
+            cam.camera.matrix().into(),
+        );
+
+        let ray_pos = nalgebra::Vector3::new(
+            cam.camera.position[0] as f64,
+            cam.camera.position[1] as f64,
+            cam.camera.position[2] as f64,
+        );
+
+        let plane = nalgebra::Vector3::new(0.0, 1.0, 0.0);
+
+        let plane_dot_ray = plane.dot(&ray_norm);
+
+        let t = -(ray_pos.dot(&plane)) / plane_dot_ray;
+        if t < 0.0 {
+            return None;
+        }
+
+        // get intersection position
+        let v = (ray_pos + ray_norm * t).xyz();
+        Some((v.x, v.y, v.z))
     }
 }

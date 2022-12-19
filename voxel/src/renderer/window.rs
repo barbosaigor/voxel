@@ -1,3 +1,4 @@
+use crate::event;
 use crate::event::*;
 use crate::game_ticker;
 use crate::state;
@@ -21,7 +22,7 @@ pub fn run(
     mut game_ticker: game_ticker::GameTicker<'static, 'static>,
     mut global_state: state::State,
 ) {
-    window.set_cursor_visible(false);
+    window.set_cursor_visible(true);
 
     ev_loop.run(move |event, _, control_flow| {
         log::trace!("running event loop");
@@ -72,6 +73,28 @@ pub fn run(
                             log::debug!("event not mapped: {:?}", keycode);
                         }
                     },
+                    WindowEvent::MouseInput {
+                        state: ElementState::Pressed,
+                        button,
+                        ..
+                    } => {
+                        if *button == winit::event::MouseButton::Right {
+                            log::debug!(
+                                "pushing {:?} to event bus",
+                                WinEvent::MouseButtons(event::MouseButton::Right)
+                            );
+                            win_events.push(WinEvent::MouseButtons(event::MouseButton::Right));
+                        } else if *button == winit::event::MouseButton::Left {
+                            log::debug!(
+                                "pushing {:?} to event bus",
+                                WinEvent::MouseButtons(event::MouseButton::Left)
+                            );
+                            win_events.push(WinEvent::MouseButtons(event::MouseButton::Left));
+                        }
+                    }
+                    WindowEvent::CursorMoved { position, .. } => {
+                        win_events.push(WinEvent::MouseMoved(position.x, position.y));
+                    }
                     _ => {}
                 };
 

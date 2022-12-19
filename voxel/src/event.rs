@@ -11,6 +11,8 @@ pub enum WinEvent {
     Left,
     Right,
     MouseMotion(f64, f64),
+    MouseMoved(f64, f64),
+    MouseButtons(MouseButton),
     Scroll(MouseScroll),
     Esc,
     Close,
@@ -23,6 +25,12 @@ pub enum WinEvent {
 pub enum MouseScroll {
     Line(f64),
     Pixel(f64),
+}
+
+#[derive(Clone, Debug)]
+pub enum MouseButton {
+    Right,
+    Left,
 }
 
 #[derive(Default)]
