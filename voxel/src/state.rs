@@ -1,4 +1,3 @@
-use crate::ecs;
 use crate::renderer;
 use crate::scene;
 use specs::WorldExt;
@@ -25,18 +24,5 @@ impl State {
     fn setup(&mut self, mut scene: Box<dyn scene::Scene>) {
         scene.setup(self);
         self.scene = Some(scene);
-    }
-
-    pub fn setup_global_system<'a, 'b>(
-        &self,
-        dispatcher: specs::DispatcherBuilder<'a, 'b>,
-    ) -> specs::DispatcherBuilder<'a, 'b> {
-        dispatcher
-            .with(
-                ecs::systems::delta_time::DeltaTimeSys {},
-                "delta_time_sys",
-                &[],
-            )
-            .with_barrier()
     }
 }

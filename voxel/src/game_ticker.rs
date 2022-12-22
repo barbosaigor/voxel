@@ -1,6 +1,5 @@
 use specs::{WorldExt, Dispatcher};
-
-use crate::{actor, camera, delta_time, event, state::State, ticker};
+use crate::{actor, camera, delta_time, event, state::State, ticker, ecs};
 
 pub struct GameTicker<'a, 'b> {
     dispatcher: Box<Dispatcher<'a, 'b>>,
@@ -9,17 +8,28 @@ pub struct GameTicker<'a, 'b> {
 impl<'a, 'b> GameTicker<'a, 'b> {
     pub fn setup(global_state: &mut State) -> Self {
         let mut dispatcher_builder = specs::DispatcherBuilder::new();
-        dispatcher_builder = global_state.setup_global_system(dispatcher_builder);
+        dispatcher_builder = Self::setup_global_system(dispatcher_builder);
         dispatcher_builder = global_state
             .scene
             .as_mut()
             .unwrap()
             .setup_systems(dispatcher_builder);
+
         let dispatcher = dispatcher_builder.build();
 
         Self {
             dispatcher: Box::new(dispatcher),
         }
+    }
+
+    pub fn setup_global_system(dispatcher: specs::DispatcherBuilder<'a, 'b>) -> specs::DispatcherBuilder<'a, 'b> {
+        dispatcher
+            .with(
+                ecs::systems::delta_time::DeltaTimeSys {},
+                "delta_time_sys",
+                &[],
+            )
+            .with_barrier()
     }
 
     fn draw(
