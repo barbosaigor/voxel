@@ -20,6 +20,7 @@ wgpu = "0.13.1"
 specs = { version = "0.18.0", features = ["specs-derive"] }
 instant = "0.1"
 rand = "0.8.5"
+rapier3d = { version = "*", features = [ "simd-stable" ] }
 
 [dependencies.image]
 version = "0.24"
@@ -30,3 +31,9 @@ features = ["png", "jpeg"]
 anyhow = "1.0"
 fs_extra = "1.2"
 glob = "0.3"
+
+[profile.dev.package.rapier3d]
+opt-level = 3
+
+[profile.release]
+codegen-units = 1
